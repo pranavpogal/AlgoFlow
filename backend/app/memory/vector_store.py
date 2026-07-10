@@ -49,9 +49,13 @@ class VectorMemory:
     def search(self, user_id: str, query: str, limit: int = 5) -> list[dict[str, Any]]:
         if self._collection:
             results = self._collection.query(query_texts=[query], n_results=limit, where={"user_id": user_id})
+            ids = results.get("ids", [[]])[0]
             docs = results.get("documents", [[]])[0]
             metas = results.get("metadatas", [[]])[0]
-            return [{"text": doc, "metadata": meta} for doc, meta in zip(docs, metas, strict=False)]
+            return [
+                {"id": memory_id, "text": doc, "metadata": meta}
+                for memory_id, doc, meta in zip(ids, docs, metas, strict=False)
+            ]
 
         if not self._fallback_path.exists():
             return []
@@ -62,7 +66,14 @@ class VectorMemory:
             if item["user_id"] != user_id:
                 continue
             score = len(query_terms.intersection(item["text"].lower().split()))
-            rows.append({"score": score, "text": item["text"], "metadata": item.get("metadata", {})})
+            rows.append(
+                {
+                    "id": item.get("id"),
+                    "score": score,
+                    "text": item["text"],
+                    "metadata": item.get("metadata", {}),
+                }
+            )
         return sorted(rows, key=lambda row: row["score"], reverse=True)[:limit]
 
 

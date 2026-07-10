@@ -4,7 +4,7 @@ from collections import Counter, defaultdict
 from typing import Any
 
 MIN_EVIDENCE_FOR_CONFIDENT_TOPIC = 3
-PASSIVE_EVENT_TYPES = {"AnalyticsViewed"}
+PASSIVE_EVENT_TYPES = {"AnalyticsViewed", "MemoryRetrieved"}
 
 
 def derive_learner_state(memory: dict[str, Any]) -> dict[str, Any]:

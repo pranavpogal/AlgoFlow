@@ -18,6 +18,7 @@ from app.memory.repository import (
     user_memory_snapshot,
 )
 from app.memory.learner_state import derive_learner_state
+from app.memory.context import MemoryContext, retrieve_memory_context
 from app.memory.vector_store import vector_memory
 from app.schemas.mentor import (
     AnalyticsResponse,
@@ -180,6 +181,13 @@ class MentorService:
                 await self._persist_problem_analysis(session, payload, user_id, result_model)
             else:
                 result_model = self._safe_policy_denied_analysis(payload)
+        await self._apply_route_memory_context(
+            session,
+            user_id=user_id,
+            payload=payload,
+            selected_capability=decision.selected_capability,
+            result_model=result_model,
+        )
         trajectory.add(
             TrajectoryEventType.WORKFLOW_EXECUTED,
             "Selected deterministic workflow executed successfully.",
@@ -434,6 +442,57 @@ class MentorService:
             mentor_note="A tool call was blocked by policy, so I am keeping this response bounded and non-spoiling.",
         )
 
+    async def _apply_route_memory_context(
+        self,
+        session: AsyncSession,
+        *,
+        user_id: str,
+        payload: MentorRouteRequest,
+        selected_capability: str,
+        result_model: Any,
+    ) -> None:
+        existing_context = getattr(result_model, "memory_context", None)
+        if isinstance(existing_context, dict) and existing_context.get("purpose"):
+            return
+        if not hasattr(result_model, "memory_context"):
+            return
+        purpose_by_capability = {
+            "code_review": "mentor_route_code_review_personalization",
+            "recommendations": "mentor_route_recommendation_personalization",
+            "pattern_transfer": "mentor_route_pattern_transfer_personalization",
+        }
+        purpose = purpose_by_capability.get(selected_capability)
+        if not purpose:
+            return
+        memory_context = await retrieve_memory_context(
+            session,
+            user_id=user_id,
+            query=f"{payload.title} {payload.description} {payload.user_message or payload.user_attempt or ''}",
+            purpose=purpose,
+            problem_title=payload.title,
+            concept=selected_capability,
+        )
+        result_model.memory_context = self._memory_context_payload(memory_context)
+        if not memory_context.applied:
+            return
+        if isinstance(result_model, CodeReviewResponse):
+            result_model.readability_feedback.append(
+                "Route personalization note: retrieved memory was considered while framing this governed review."
+            )
+            result_model.unsupported_claims = self._with_memory_limitations(
+                result_model.unsupported_claims, memory_context
+            )
+        elif isinstance(result_model, RecommendationResponse):
+            result_model.explanation = self._with_memory_note(result_model.explanation, memory_context)
+        elif isinstance(result_model, PatternTransferResponse):
+            result_model.evidence_hierarchy.append(
+                {
+                    "source": "retrieved_memory",
+                    "claim": "Prior memory was used as advisory personalization context.",
+                    "provenance": memory_context.provenance(),
+                }
+            )
+
     def _safe_policy_denied_analysis(self, payload: MentorRouteRequest) -> TopicAnalysis:
         return TopicAnalysis(
             problem=payload.title,
@@ -556,6 +615,15 @@ class MentorService:
         learner_state = derive_learner_state(memory)
         detected = detect_problem_pattern(payload.title, payload.description)
         pattern = detected["pattern"]
+        memory_context = await retrieve_memory_context(
+            session,
+            user_id=user_id,
+            query=f"{payload.title} {pattern} {payload.user_attempt or ''}",
+            purpose="hint_personalization",
+            problem_title=payload.title,
+            concept=pattern,
+        )
+        learner_state["retrieved_memory"] = memory_context.snippets()
         previous_hints = [
             event
             for event in await learning_events_for_user(session, user_id, event_type="HintDelivered", limit=10)
@@ -592,7 +660,8 @@ class MentorService:
             level=hint_result.hint_level,
             hint=hint_result.hint,
             reveals_solution=hint_result.reveals_solution,
-            mentor_note=hint_result.mentor_note,
+            mentor_note=self._with_memory_note(hint_result.mentor_note, memory_context),
+            memory_context=self._memory_context_payload(memory_context),
         )
         await record_learning_event(
             session,
@@ -612,6 +681,8 @@ class MentorService:
                 "uses_previous_hint_context": hint_result.uses_previous_hint_context,
                 "solution_leakage_risk": hint_result.solution_leakage_risk,
                 "next_escalation_condition": hint_result.next_escalation_condition,
+                "memory_context_applied": memory_context.applied,
+                "memory_provenance": memory_context.provenance(),
             },
             metadata={"source_route": "hints.next"},
         )
@@ -648,6 +719,15 @@ class MentorService:
     ) -> CodeReviewResponse:
         memory = await user_memory_snapshot(session, user_id)
         learner_state = derive_learner_state(memory)
+        memory_context = await retrieve_memory_context(
+            session,
+            user_id=user_id,
+            query=f"{payload.title} {payload.language} {payload.user_intent or ''} {payload.problem_description or ''}",
+            purpose="code_review_personalization",
+            problem_title=payload.title,
+            concept="code_review",
+        )
+        learner_state["retrieved_memory"] = memory_context.snippets()
         await record_learning_event(
             session,
             user_id,
@@ -687,8 +767,13 @@ class MentorService:
             findings=[finding.to_dict() for finding in review_result.findings],
             corrected_code=review_result.corrected_code,
             rewrite_allowed=review_result.rewrite_allowed,
-            unsupported_claims=review_result.unsupported_claims,
+            unsupported_claims=self._with_memory_limitations(review_result.unsupported_claims, memory_context),
+            memory_context=self._memory_context_payload(memory_context),
         )
+        if memory_context.applied:
+            response.readability_feedback.append(
+                "Personalization note: I considered a small set of your prior memory snippets while framing this review."
+            )
         await self._persist_code_review_response(
             session,
             payload,
@@ -828,6 +913,14 @@ class MentorService:
     ) -> StudyPlanResponse:
         memory = await user_memory_snapshot(session, user_id)
         memory["derived_learner_state"] = derive_learner_state(memory)
+        memory_context = await retrieve_memory_context(
+            session,
+            user_id=user_id,
+            query=f"{payload.target_company} study plan {payload.days_remaining} days {payload.hours_per_week} hours",
+            purpose="study_plan_personalization",
+            problem_title="Study Plan",
+            concept=payload.target_company,
+        )
         plan = build_weekly_plan(memory, payload.days_remaining, payload.hours_per_week)
         response = StudyPlanResponse(
             target_company=payload.target_company,
@@ -841,7 +934,9 @@ class MentorService:
             personalization_notes=[
                 "Schedule emphasizes current weak topics from memory.",
                 "Each week includes review loops so solved problems turn into durable skill.",
+                *self._memory_notes(memory_context),
             ],
+            memory_context=self._memory_context_payload(memory_context),
         )
         await record_learning_event(
             session,
@@ -852,6 +947,8 @@ class MentorService:
                 "days_remaining": payload.days_remaining,
                 "hours_per_week": payload.hours_per_week,
                 "weeks": len(response.weekly_plan),
+                "memory_context_applied": memory_context.applied,
+                "memory_provenance": memory_context.provenance(),
             },
             metadata={"source_route": source_route},
         )
@@ -861,6 +958,14 @@ class MentorService:
         self, session: AsyncSession, payload: ProblemInput, user_id: str
     ) -> RecommendationResponse:
         detected = detect_problem_pattern(payload.title, payload.description)
+        memory_context = await retrieve_memory_context(
+            session,
+            user_id=user_id,
+            query=f"{payload.title} {detected['pattern']} recommendations related practice",
+            purpose="recommendation_personalization",
+            problem_title=payload.title,
+            concept=detected["pattern"],
+        )
         transfer = await self._pattern_transfer_result(session, payload, user_id)
         related = [
             {
@@ -879,18 +984,27 @@ class MentorService:
             difficulty_progression=[item["difficulty"] for item in related],
             explanation=(
                 "Recommendations are selected by structural transfer evidence, learner-state confidence, "
-                "and bounded corpus relationships; they are not mastery claims."
+                "bounded corpus relationships, and retrieved memory when available; they are not mastery claims."
             ),
             recommendations=[item.to_dict() for item in transfer.recommendations],
             learner_state_confidence=transfer.learner_state_confidence_bucket,
             fallback_reason=transfer.fallback_reason,
             same_topic_shortcut_used=transfer.same_topic_shortcut_used,
+            memory_context=self._memory_context_payload(memory_context),
         )
 
     async def pattern_transfer(
         self, session: AsyncSession, payload: ProblemInput, user_id: str
     ) -> PatternTransferResponse:
         transfer = await self._pattern_transfer_result(session, payload, user_id)
+        memory_context = await retrieve_memory_context(
+            session,
+            user_id=user_id,
+            query=f"{payload.title} {transfer.source_pattern} pattern transfer",
+            purpose="pattern_transfer_personalization",
+            problem_title=payload.title,
+            concept=transfer.source_pattern,
+        )
         related = [
             {
                 "number": item.target_problem_id,
@@ -918,6 +1032,7 @@ class MentorService:
             evidence_hierarchy=transfer.evidence_hierarchy,
             fallback_reason=transfer.fallback_reason,
             same_topic_shortcut_used=transfer.same_topic_shortcut_used,
+            memory_context=self._memory_context_payload(memory_context),
         )
 
     async def _pattern_transfer_result(
@@ -1006,6 +1121,14 @@ class MentorService:
     ) -> InterviewTurnResponse:
         session_id = payload.session_id or str(uuid4())
         message = payload.message.lower()
+        memory_context = await retrieve_memory_context(
+            session,
+            user_id=user_id,
+            query=f"{payload.problem_title or ''} {payload.persona} interview {payload.message}",
+            purpose="mock_interview_personalization",
+            problem_title=payload.problem_title,
+            concept=payload.persona,
+        )
         if "complex" in message or "o(" in message:
             reply = "Good, now justify why no hidden nested work changes that complexity. What input shape is worst-case?"
             focus = "complexity justification"
@@ -1024,10 +1147,14 @@ class MentorService:
             score = 0
         response = InterviewTurnResponse(
             session_id=session_id,
-            interviewer_message=reply,
+            interviewer_message=self._with_memory_note(reply, memory_context),
             follow_up_focus=focus,
             score_delta=score,
-            feedback=["Be explicit about invariants and tradeoffs; that is where interview signal appears."],
+            feedback=[
+                "Be explicit about invariants and tradeoffs; that is where interview signal appears.",
+                *self._memory_notes(memory_context),
+            ],
+            memory_context=self._memory_context_payload(memory_context),
         )
         await record_learning_event(
             session,
@@ -1040,10 +1167,54 @@ class MentorService:
                 "message_length": len(payload.message),
                 "follow_up_focus": response.follow_up_focus,
                 "score_delta": response.score_delta,
+                "memory_context_applied": memory_context.applied,
+                "memory_provenance": memory_context.provenance(),
             },
             metadata={"source_route": "mock-interview.turn"},
         )
         return response
+
+    def _memory_context_payload(self, memory_context: MemoryContext) -> dict[str, Any]:
+        return {
+            "applied": memory_context.applied,
+            "purpose": memory_context.purpose,
+            "retrieved_count": len(memory_context.retrieved),
+            "snippets": memory_context.snippets(),
+            "provenance": memory_context.provenance(),
+            "policy": {
+                "decision": memory_context.policy_decision.decision,
+                "policy_id": memory_context.policy_decision.policy_id,
+                "reason": memory_context.policy_decision.reason,
+                "constraints": memory_context.policy_decision.constraints,
+            },
+            "limitations": memory_context.limitations,
+        }
+
+    def _with_memory_note(self, text: str, memory_context: MemoryContext) -> str:
+        if not memory_context.applied:
+            return text
+        return (
+            f"{text} I also found relevant prior memory, so I am biasing this guidance toward "
+            "your recent evidence rather than treating this as a fresh isolated interaction."
+        )
+
+    def _memory_notes(self, memory_context: MemoryContext) -> list[str]:
+        if not memory_context.applied:
+            return []
+        return [
+            (
+                f"Retrieved memory applied for {memory_context.purpose}: "
+                f"{memory_context.snippets()[0]}"
+            )
+        ]
+
+    def _with_memory_limitations(
+        self, unsupported_claims: list[str], memory_context: MemoryContext
+    ) -> list[str]:
+        claims = list(unsupported_claims)
+        if memory_context.applied:
+            claims.append("Retrieved memory was used as advisory context, not as proof of correctness.")
+        return claims
 
 
 mentor_service = MentorService()

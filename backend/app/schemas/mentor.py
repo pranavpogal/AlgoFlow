@@ -43,6 +43,7 @@ class HintResponse(BaseModel):
     hint: str
     reveals_solution: bool = False
     mentor_note: str
+    memory_context: dict[str, Any] = Field(default_factory=dict)
 
 
 class CodeReviewRequest(BaseModel):
@@ -89,6 +90,7 @@ class CodeReviewResponse(BaseModel):
     corrected_code: str | None = None
     rewrite_allowed: bool = False
     unsupported_claims: list[str] = Field(default_factory=list)
+    memory_context: dict[str, Any] = Field(default_factory=dict)
 
 
 class StudyPlanRequest(BaseModel):
@@ -104,6 +106,7 @@ class StudyPlanResponse(BaseModel):
     weekly_plan: list[dict[str, Any]]
     checkpoints: list[str]
     personalization_notes: list[str]
+    memory_context: dict[str, Any] = Field(default_factory=dict)
 
 
 class InterviewTurnRequest(BaseModel):
@@ -120,6 +123,7 @@ class InterviewTurnResponse(BaseModel):
     follow_up_focus: str
     score_delta: int = 0
     feedback: list[str] = Field(default_factory=list)
+    memory_context: dict[str, Any] = Field(default_factory=dict)
 
 
 class AnalyticsResponse(BaseModel):
@@ -144,6 +148,7 @@ class RecommendationResponse(BaseModel):
     learner_state_confidence: str = "unknown"
     fallback_reason: str | None = None
     same_topic_shortcut_used: bool = False
+    memory_context: dict[str, Any] = Field(default_factory=dict)
 
 
 class PatternTransferResponse(BaseModel):
@@ -160,6 +165,7 @@ class PatternTransferResponse(BaseModel):
     evidence_hierarchy: list[dict[str, Any]] = Field(default_factory=list)
     fallback_reason: str | None = None
     same_topic_shortcut_used: bool = False
+    memory_context: dict[str, Any] = Field(default_factory=dict)
 
 
 class MentorRouteRequest(ProblemInput):
