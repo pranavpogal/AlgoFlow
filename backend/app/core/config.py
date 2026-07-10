@@ -9,7 +9,11 @@ class Settings(BaseSettings):
     environment: str = "local"
     api_prefix: str = "/api/v1"
     database_url: str = "sqlite+aiosqlite:///./algoflow.db"
+    auto_create_db_schema: bool = True
     chroma_path: str = "./.chroma"
+    auth_mode: str = "hmac"
+    auth_token_secret: str | None = None
+    trusted_header_auth_enabled: bool = False
     gemini_model: str = "gemini-2.5-flash"
     google_api_key: str | None = None
     enable_live_adk: bool = False
@@ -37,8 +41,23 @@ class Settings(BaseSettings):
         if self.database_url.startswith("sqlite"):
             raise RuntimeError("Production-like environments must not use local SQLite.")
 
+        if not self.database_url.startswith("postgresql+asyncpg://"):
+            raise RuntimeError("Production-like environments must use postgresql+asyncpg DATABASE_URL.")
+
+        if self.auto_create_db_schema:
+            raise RuntimeError("Production-like environments must use migrations instead of create_all startup.")
+
         if self.chroma_path.startswith(".") or self.chroma_path.startswith("/tmp"):
             raise RuntimeError("Production-like environments must not use a local Chroma path.")
+
+        if self.auth_mode == "hmac" and not self.auth_token_secret:
+            raise RuntimeError("Production-like HMAC auth requires AUTH_TOKEN_SECRET.")
+
+        if self.auth_mode == "trusted_header" and not self.trusted_header_auth_enabled:
+            raise RuntimeError("Trusted-header auth must be explicitly enabled.")
+
+        if self.auth_mode not in {"hmac", "trusted_header"}:
+            raise RuntimeError("Production-like environments must use auth_mode=hmac or trusted_header.")
 
         if self.enable_live_adk and not self.google_api_key:
             raise RuntimeError("ENABLE_LIVE_ADK requires GOOGLE_API_KEY or configured Google credentials.")
