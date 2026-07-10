@@ -52,6 +52,7 @@ class ProblemClassificationContext:
     problem_number: str | None = None
     url: str | None = None
     known_tags: list[str] = field(default_factory=list)
+    use_canonical_title_catalog: bool = False
 
 
 @dataclass(frozen=True)
@@ -633,6 +634,51 @@ CURATED_PROBLEMS_BY_NUMBER = {
     },
 }
 
+CURATED_PROBLEM_NUMBERS_BY_TITLE = {
+    "two sum": "1",
+    "valid parentheses": "20",
+    "maximum subarray": "53",
+    "number of islands": "200",
+    "house robber": "198",
+    "koko eating bananas": "875",
+    "longest substring without repeating characters": "3",
+    "course schedule": "207",
+    "longest consecutive sequence": "128",
+    "subarray sum equals k": "560",
+    "find the duplicate number": "287",
+    "first missing positive": "41",
+    "trapping rain water": "42",
+    "gas station": "134",
+    "daily temperatures": "739",
+    "redundant connection": "684",
+    "accounts merge": "721",
+    "minimum window substring": "76",
+    "split array largest sum": "410",
+    "remove invalid parentheses": "301",
+    "jump game": "55",
+    "jump game ii": "45",
+    "non-overlapping intervals": "435",
+    "minimum number of arrows to burst balloons": "452",
+    "partition labels": "763",
+    "two city scheduling": "1029",
+    "boats to save people": "881",
+    "task scheduler": "621",
+    "maximum length of pair chain": "646",
+    "wiggle subsequence": "376",
+    "best time to buy and sell stock ii": "122",
+    "house robber ii": "213",
+    "coin change": "322",
+    "word break": "139",
+    "decode ways": "91",
+    "partition equal subset sum": "416",
+    "longest increasing subsequence": "300",
+    "number of longest increasing subsequence": "673",
+    "russian doll envelopes": "354",
+    "best team with no conflicts": "1626",
+    "maximum profit in job scheduling": "1235",
+    "longest common subsequence": "1143",
+}
+
 RULES = [
     ("binary_search_answer", 0.9, ["minimum capacity", "minimize maximum", "smallest maximum", "ship within", "koko", "monotonic predicate", "binary search on answer"], "monotonic feasibility predicate over answer space"),
     ("shortest_path", 0.88, ["shortest path", "minimum distance", "weighted graph", "dijkstra"], "shortest-path relaxation or distance objective"),
@@ -839,6 +885,8 @@ def _curated_match(context: ProblemClassificationContext) -> dict[str, Any] | No
     if context.problem_number and context.problem_number in CURATED_PROBLEMS_BY_NUMBER:
         return CURATED_PROBLEMS_BY_NUMBER[context.problem_number]
     lowered = context.title.lower()
+    if context.use_canonical_title_catalog and lowered in CURATED_PROBLEM_NUMBERS_BY_TITLE:
+        return CURATED_PROBLEMS_BY_NUMBER[CURATED_PROBLEM_NUMBERS_BY_TITLE[lowered]]
     for known_title, metadata in CURATED_PROBLEMS.items():
         if known_title in lowered:
             return metadata

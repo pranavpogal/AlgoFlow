@@ -514,7 +514,12 @@ class MentorService:
     async def analyze_problem(
         self, session: AsyncSession, payload: ProblemInput, user_id: str
     ) -> TopicAnalysis:
-        detected = detect_problem_pattern(payload.title, payload.description)
+        detected = detect_problem_pattern(
+            payload.title,
+            payload.description,
+            payload.problem_number,
+            use_canonical_title_catalog=True,
+        )
         analysis = self._topic_analysis_from_detected(payload, detected)
         await self._persist_problem_analysis(session, payload, user_id, analysis)
         return analysis

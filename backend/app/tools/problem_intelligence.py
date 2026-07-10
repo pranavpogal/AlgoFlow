@@ -26,9 +26,22 @@ RELATED_PROBLEMS = {
 }
 
 
-def detect_problem_pattern(title: str, description: str) -> dict:
+def detect_problem_pattern(
+    title: str,
+    description: str,
+    problem_number: str | None = None,
+    *,
+    use_canonical_title_catalog: bool = False,
+) -> dict:
     """Classify a problem with typed evidence while preserving legacy response keys."""
-    return classify_problem(ProblemClassificationContext(title=title, description=description)).to_legacy_dict()
+    return classify_problem(
+        ProblemClassificationContext(
+            title=title,
+            description=description,
+            problem_number=problem_number,
+            use_canonical_title_catalog=use_canonical_title_catalog,
+        )
+    ).to_legacy_dict()
 
 
 def recommend_related_problems(pattern: str) -> list[dict]:

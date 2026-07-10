@@ -19,9 +19,9 @@ CASE_KEYS = {
 }
 
 
-def evaluate_leetcode_problem_set(path: str | Path) -> dict[str, Any]:
+def evaluate_leetcode_problem_set(path: str | Path, *, use_problem_number: bool = True) -> dict[str, Any]:
     cases = load_leetcode_markdown_cases(path)
-    results = [_evaluate_case(case) for case in cases]
+    results = [_evaluate_case(case, use_problem_number=use_problem_number) for case in cases]
     failed = [result for result in results if not result["passed"]]
     return {
         "case_count": len(results),
@@ -61,12 +61,13 @@ def _split_csv(value: str) -> list[str]:
     return [item.strip() for item in value.split(",") if item.strip()]
 
 
-def _evaluate_case(case: dict[str, Any]) -> dict[str, Any]:
+def _evaluate_case(case: dict[str, Any], *, use_problem_number: bool) -> dict[str, Any]:
     result = classify_problem(
         ProblemClassificationContext(
             title=case["title"],
             description=case["description"],
-            problem_number=case.get("problem_number"),
+            problem_number=case.get("problem_number") if use_problem_number else None,
+            use_canonical_title_catalog=True,
         )
     )
     expected_subpatterns = set(case["expected_sub_patterns"])
