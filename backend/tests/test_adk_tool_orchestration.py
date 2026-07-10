@@ -209,6 +209,26 @@ async def test_adk_runtime_deterministic_route_can_select_code_review() -> None:
 
 
 @pytest.mark.asyncio
+async def test_adk_runtime_deterministic_route_can_select_study_plan() -> None:
+    runtime = AdkCoordinatorRuntime(settings=Settings(enable_live_adk=False))
+    trajectory = Trajectory.start("mentor_route", session_id="session_study_plan")
+
+    decision = await runtime.route(
+        MentorRoutingInput(
+            requested_capability="study_plan",
+            user_message="Build a study plan for my interview prep.",
+            title="Study Planner",
+            description="Create a realistic preparation plan.",
+        ),
+        trajectory,
+    )
+
+    assert decision.selected_capability == "study_plan"
+    assert decision.selected_skill == "study_planning_workflow"
+    assert trajectory.fallback_used is True
+
+
+@pytest.mark.asyncio
 async def test_mentor_route_executes_adk_requested_related_problems_for_recommendations(monkeypatch) -> None:
     async def invoker(agent, routing_input: MentorRoutingInput, trajectory: Trajectory):
         return {
@@ -463,4 +483,38 @@ async def test_mentor_route_code_review_without_tool_request_uses_safe_fallback(
     assert body["selected_capability"] == "code_review"
     assert body["result"]["analysis_layers"] == ["policy_gated_tool_unavailable"]
     assert body["result"]["unsupported_claims"] == ["No code analysis was performed."]
+    assert "TOOL_CALL_COMPLETED" not in event_types
+
+
+@pytest.mark.asyncio
+async def test_mentor_route_study_plan_executes_deterministic_planner_without_tools() -> None:
+    await init_db()
+    transport = ASGITransport(app=app)
+
+    async with AsyncClient(transport=transport, base_url="http://testserver") as client:
+        response = await client.post(
+            "/api/v1/mentor/route",
+            json={
+                "requested_capability": "study_plan",
+                "user_message": "Create a 30 day Google study plan.",
+                "title": "Study Planner",
+                "description": "Create a realistic preparation plan.",
+                "target_company": "Google",
+                "days_remaining": 30,
+                "hours_per_week": 10,
+            },
+            headers={"x-request-id": "req_adk_study_plan", "x-user-id": "adk-study-plan-user"},
+        )
+
+    body = response.json()
+    event_types = [event["event_type"] for event in body["trajectory"]["events"]]
+
+    assert response.status_code == 200
+    assert body["selected_capability"] == "study_plan"
+    assert body["selected_skill"] == "study_planning_workflow"
+    assert body["result"]["target_company"] == "Google"
+    assert body["result"]["days_remaining"] == 30
+    assert body["result"]["weekly_plan"]
+    assert "WORKFLOW_EXECUTED" in event_types
+    assert "ADK_TOOL_REQUESTED" not in event_types
     assert "TOOL_CALL_COMPLETED" not in event_types

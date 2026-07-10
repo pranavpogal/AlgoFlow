@@ -26,7 +26,14 @@ except Exception:  # pragma: no cover - local dependency guard
     InMemorySessionService = None  # type: ignore[assignment]
     genai_types = None  # type: ignore[assignment]
 
-CoordinatorCapability = Literal["problem_analysis", "next_hint", "recommendations", "pattern_transfer", "code_review"]
+CoordinatorCapability = Literal[
+    "problem_analysis",
+    "next_hint",
+    "recommendations",
+    "pattern_transfer",
+    "code_review",
+    "study_plan",
+]
 CoordinatorToolId = Literal["problem.detect_pattern", "problem.related_problems", "code.review_static"]
 
 
@@ -125,7 +132,7 @@ class LiveAdkDecisionInvoker:
     def _prompt(self, routing_input: MentorRoutingInput) -> str:
         return (
             "Route this AlgoFlow request. Return only JSON matching this schema: "
-            "{selected_capability: 'problem_analysis'|'next_hint'|'recommendations'|'pattern_transfer'|'code_review', "
+            "{selected_capability: 'problem_analysis'|'next_hint'|'recommendations'|'pattern_transfer'|'code_review'|'study_plan', "
             "selected_skill: string, "
             "confidence: number, rationale: string, fallback_allowed: boolean, "
             "tool_requests: optional array of {tool_id: 'problem.detect_pattern'|'problem.related_problems'|'code.review_static', "
@@ -246,7 +253,7 @@ class AdkCoordinatorRuntime:
             model=self.settings.gemini_model,
             description="Narrow AlgoFlow coordinator for routing mentor requests to deterministic skills.",
             instruction=(
-                "Route only between problem_analysis, next_hint, recommendations, pattern_transfer, and code_review. "
+                "Route only between problem_analysis, next_hint, recommendations, pattern_transfer, code_review, and study_plan. "
                 "Preserve learner agency. "
                 "Never solve the problem. You may request only approved read/draft tools in the "
                 "structured routing decision; never execute tools directly."
@@ -272,6 +279,9 @@ class AdkCoordinatorRuntime:
         if requested in {"next_hint", "hint", "progressive_hinting"}:
             capability: CoordinatorCapability = "next_hint"
             skill = "progressive_hinting_workflow"
+        elif requested in {"study_plan", "study-plan", "planner", "study_planner", "plan"}:
+            capability = "study_plan"
+            skill = "study_planning_workflow"
         elif requested in {"code_review", "review_code", "code-review", "review"}:
             capability = "code_review"
             skill = "code_review_workflow"
@@ -287,6 +297,9 @@ class AdkCoordinatorRuntime:
         elif "review my code" in message or "code review" in message or "find the bug" in message:
             capability = "code_review"
             skill = "code_review_workflow"
+        elif "study plan" in message or "plan my prep" in message or "days remaining" in message:
+            capability = "study_plan"
+            skill = "study_planning_workflow"
         elif "pattern transfer" in message or "transfer this pattern" in message or "pattern evolution" in message:
             capability = "pattern_transfer"
             skill = "pattern_transfer_workflow"

@@ -121,7 +121,14 @@ class MentorService:
                     selected_skill=decision.selected_skill,
                     metadata={"error": type(exc).__name__},
                 )
-        if decision.selected_capability == "code_review":
+        if decision.selected_capability == "study_plan":
+            result_model = await self.study_plan(
+                session,
+                self._study_plan_request_from_route(payload),
+                user_id,
+                source_route="mentor.route",
+            )
+        elif decision.selected_capability == "code_review":
             if code_review_via_gateway:
                 result_model = CodeReviewResponse.model_validate(code_review_via_gateway)
                 await self._persist_code_review_response(
@@ -803,8 +810,21 @@ class MentorService:
             user_intent=payload.user_message or payload.user_attempt,
         )
 
+    def _study_plan_request_from_route(self, payload: MentorRouteRequest) -> StudyPlanRequest:
+        return StudyPlanRequest(
+            user_id=payload.user_id,
+            target_company=payload.target_company or "Google",
+            days_remaining=payload.days_remaining if payload.days_remaining is not None else 45,
+            hours_per_week=payload.hours_per_week if payload.hours_per_week is not None else 8,
+        )
+
     async def study_plan(
-        self, session: AsyncSession, payload: StudyPlanRequest, user_id: str
+        self,
+        session: AsyncSession,
+        payload: StudyPlanRequest,
+        user_id: str,
+        *,
+        source_route: str = "study-plan",
     ) -> StudyPlanResponse:
         memory = await user_memory_snapshot(session, user_id)
         memory["derived_learner_state"] = derive_learner_state(memory)
@@ -833,7 +853,7 @@ class MentorService:
                 "hours_per_week": payload.hours_per_week,
                 "weeks": len(response.weekly_plan),
             },
-            metadata={"source_route": "study-plan"},
+            metadata={"source_route": source_route},
         )
         return response
 

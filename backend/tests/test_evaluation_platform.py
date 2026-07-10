@@ -34,8 +34,8 @@ def test_adk_routing_suite_is_explicit_and_gated() -> None:
     assert result.exit_code == 0
     assert len(result.suites) == 1
     suite = result.suites[0]
-    assert suite.case_count == 6
-    assert suite.passed == 6
+    assert suite.case_count == 7
+    assert suite.passed == 7
     assert suite.metrics["routing_accuracy"] == 1.0
     assert suite.metrics["trajectory_event_coverage"] == 1.0
     assert suite.metrics["trajectory_identity_completeness"] == 1.0

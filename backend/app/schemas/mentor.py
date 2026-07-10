@@ -164,7 +164,12 @@ class PatternTransferResponse(BaseModel):
 
 class MentorRouteRequest(ProblemInput):
     requested_capability: Literal[
-        "problem_analysis", "next_hint", "recommendations", "pattern_transfer", "code_review"
+        "problem_analysis",
+        "next_hint",
+        "recommendations",
+        "pattern_transfer",
+        "code_review",
+        "study_plan",
     ] | None = None
     user_message: str | None = None
     current_hint_level: int | None = None
@@ -174,6 +179,9 @@ class MentorRouteRequest(ProblemInput):
     language: str | None = None
     code: str | None = None
     problem_description: str | None = None
+    target_company: str | None = None
+    days_remaining: int | None = None
+    hours_per_week: int | None = None
 
 
 class MentorRouteResponse(BaseModel):
