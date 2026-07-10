@@ -1094,19 +1094,21 @@ class MentorService:
         learner_state = derive_learner_state(memory)
         response = AnalyticsResponse(
             readiness_score=learner_state["readiness_score"],
+            readiness_components=learner_state["readiness_components"],
             confidence=learner_state["confidence"],
             evidence_count=learner_state["evidence_count"],
             strongest_topics=learner_state["strong_topics"],
             weakest_topics=learner_state["weak_topics"],
             common_mistakes=learner_state["common_mistakes"],
+            mistake_trends=learner_state["mistake_trends"],
             topic_mastery=learner_state["topic_mastery"],
-            learning_velocity=[
-                {"week": "Evidence", "solved": memory.get("attempt_count", 0)},
-                {"week": "Events", "solved": memory.get("learning_event_count", 0)},
-                {"week": "W3", "solved": max(2, memory.get("attempt_count", 0))},
-            ],
+            topic_risk=learner_state["topic_risk"],
+            learning_velocity=learner_state["learning_velocity"],
+            interview_readiness=learner_state["interview_readiness"],
+            next_best_actions=learner_state["next_best_actions"],
             recommendations=learner_state["recommendations"],
             evidence_summary=learner_state["evidence_summary"],
+            limitations=learner_state["limitations"],
         )
         await record_learning_event(
             session,
@@ -1114,8 +1116,10 @@ class MentorService:
             "AnalyticsViewed",
             evidence={
                 "readiness_score": response.readiness_score,
+                "readiness_components": response.readiness_components,
                 "attempt_count": memory.get("attempt_count", 0),
                 "learning_event_count": memory.get("learning_event_count", 0),
+                "confidence": response.confidence,
             },
             metadata={"source_route": "analytics"},
         )

@@ -134,15 +134,21 @@ class InterviewTurnResponse(BaseModel):
 
 class AnalyticsResponse(BaseModel):
     readiness_score: int
+    readiness_components: dict[str, Any] = Field(default_factory=dict)
     confidence: str = "unknown"
     evidence_count: int = 0
     strongest_topics: list[str]
     weakest_topics: list[str]
     common_mistakes: list[dict[str, Any]]
+    mistake_trends: list[dict[str, Any]] = Field(default_factory=list)
     topic_mastery: list[dict[str, Any]]
+    topic_risk: list[dict[str, Any]] = Field(default_factory=list)
     learning_velocity: list[dict[str, Any]]
+    interview_readiness: dict[str, Any] = Field(default_factory=dict)
+    next_best_actions: list[dict[str, Any]] = Field(default_factory=list)
     recommendations: list[str]
     evidence_summary: dict[str, Any] = Field(default_factory=dict)
+    limitations: list[str] = Field(default_factory=list)
 
 
 class RecommendationResponse(BaseModel):

@@ -288,6 +288,9 @@ async def user_memory_snapshot(session: AsyncSession, user_id: str) -> dict[str,
     learning_events = (
         await session.execute(select(LearningEvent).where(LearningEvent.user_id == user_id))
     ).scalars().all()
+    interviews = (
+        await session.execute(select(InterviewSession).where(InterviewSession.user_id == user_id))
+    ).scalars().all()
 
     pattern_counts = Counter(a.pattern for a in attempts if a.pattern)
     mistake_counts = Counter(m.category for m in mistakes)
@@ -295,6 +298,43 @@ async def user_memory_snapshot(session: AsyncSession, user_id: str) -> dict[str,
     recent = [
         {"title": a.title, "pattern": a.pattern, "difficulty": a.difficulty, "status": a.status}
         for a in attempts[-10:]
+    ]
+    event_history = [
+        {
+            "event_type": event.event_type,
+            "problem_title": event.problem_title,
+            "concept": event.concept,
+            "created_at": event.created_at.isoformat() if event.created_at else None,
+            "source": event.source,
+            "evidence": event.evidence or {},
+            "metadata": event.event_metadata or {},
+        }
+        for event in sorted(learning_events, key=lambda item: item.created_at.isoformat() if item.created_at else "")
+    ]
+    attempt_history = [
+        {
+            "title": attempt.title,
+            "pattern": attempt.pattern,
+            "difficulty": attempt.difficulty,
+            "status": attempt.status,
+            "created_at": attempt.created_at.isoformat() if attempt.created_at else None,
+        }
+        for attempt in attempts
+    ]
+    interview_summaries = [
+        {
+            "session_id": interview.id,
+            "persona": interview.persona,
+            "problem_title": interview.problem_title,
+            "turn_count": int((interview.scorecard or {}).get("turn_count", 0)),
+            "total_score": int((interview.scorecard or {}).get("total_score", 0)),
+            "max_score": int((interview.scorecard or {}).get("max_score", 0)),
+            "rubric_scores": (interview.scorecard or {}).get("rubric_scores", {}),
+            "last_stage": (interview.scorecard or {}).get("last_stage"),
+            "created_at": interview.created_at.isoformat() if interview.created_at else None,
+            "updated_at": interview.updated_at.isoformat() if interview.updated_at else None,
+        }
+        for interview in interviews
     ]
 
     topic_history: dict[str, list[str]] = defaultdict(list)
@@ -308,6 +348,9 @@ async def user_memory_snapshot(session: AsyncSession, user_id: str) -> dict[str,
         "learning_event_count": len(learning_events),
         "learning_event_counts": dict(learning_event_counts),
         "recent_attempts": recent,
+        "attempt_history": attempt_history,
+        "event_history": event_history,
+        "interview_summaries": interview_summaries,
         "pattern_counts": dict(pattern_counts),
         "mistake_counts": dict(mistake_counts),
         "topic_history": dict(topic_history),
