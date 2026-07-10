@@ -44,12 +44,12 @@ The ADK routing suite is not included in `--suite all` yet. This preserves the P
 
 Current local result:
 
-- 6 cases
-- 6 passed
+- 7 cases
+- 7 passed
 - routing accuracy: 1.0
 - trajectory event coverage: 1.0
 - trajectory identity completeness: 1.0
 - fallback policy accuracy: 1.0
 
 The current case set includes explicit routes for hints, problem analysis, recommendations,
-pattern transfer, and code review.
+pattern transfer, code review, and study planning.

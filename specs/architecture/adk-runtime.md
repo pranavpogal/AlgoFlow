@@ -15,7 +15,7 @@ Implemented narrow runtime slice:
 - New route: `POST /api/v1/mentor/route`.
 - Runtime: `AdkCoordinatorRuntime`.
 - Real ADK object: a narrow `google.adk.agents.Agent` coordinator with structured output schema.
-- Current routed capabilities: `problem_analysis`, `next_hint`, `recommendations`, `pattern_transfer`, and `code_review`.
+- Current routed capabilities: `problem_analysis`, `next_hint`, `recommendations`, `pattern_transfer`, `code_review`, and `study_plan`.
 - Deterministic fallback: always available and used when `ENABLE_LIVE_ADK=false`.
 - Live invocation: available only when `ENABLE_LIVE_ADK=true` and `GOOGLE_API_KEY` is configured.
 - Tool request contract: `CoordinatorDecision.tool_requests` can request only `problem.detect_pattern`, `problem.related_problems`, or `code.review_static`.
@@ -153,6 +153,11 @@ If no approved code-review tool request exists, the route returns a safe policy-
 `CodeReviewResponse` explaining that no review was performed instead of calling the legacy raw
 review path.
 
+For `study_plan`, the route selects `study_planning_workflow` and executes the existing
+deterministic planner directly. No ADK tool request is required because the planner reads the
+scoped memory snapshot through the service layer and does not need external or model-mediated
+tool authority. The direct `/study-plan` endpoint remains a compatibility path.
+
 ## Evaluation
 
 Explicit suite:
@@ -174,6 +179,6 @@ Set `ENABLE_LIVE_ADK=false` or use the existing direct deterministic endpoints. 
 
 - Direct ADK tool invocation.
 - Trajectory retention/deletion policy.
-- ADK routing for additional capabilities beyond code review.
+- ADK routing for additional capabilities beyond study planning.
 - Model/token/cost metrics.
 - Accepted-baseline promotion for ADK routing suite.
