@@ -23,6 +23,7 @@ Current truth:
 - ChromaDB retrieval is used as bounded, same-user advisory memory context in mentor workflows.
 - Mock interviews now persist transcript and rubric scorecard state in `interview_sessions`.
 - Analytics derive readiness components, topic risk, mistake trends, learning velocity, next best actions, and mock-interview readiness from persisted learner evidence without invoking a live model.
+- The frontend exposes recruiter-demo surfaces for learner analytics, mock-interview rubric scoring, memory-backed profile evidence, and governed route trajectory/policy visibility.
 
 ## Target Architecture Direction
 
@@ -61,6 +62,7 @@ flowchart TD
 - ADK remains a narrow coordinator route, not a broad all-agent runtime.
 - Mock interviews are deterministic and stateful, not live Gemini interviewer sessions.
 - Analytics remain deterministic and evidence-backed; they are not yet a live narrative analytics agent or predictive readiness model.
+- Frontend polish is demo-ready but still local-first; production-grade accessibility audits, visual regression tests, and user settings remain future work.
 - No secure code execution service.
 - No Alembic migration files or cloud deployment pipeline yet.
 
