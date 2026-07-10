@@ -15,9 +15,9 @@ evals/semantic_tool_policy/cases.jsonl
 
 ## Dataset Size
 
-18 cases:
+19 cases:
 
-- development: 8
+- development: 9
 - held_out: 4
 - adversarial: 6
 
@@ -27,6 +27,7 @@ The suite covers:
 
 - safe aligned pattern detection
 - safe related-problem recommendation
+- safe static code review
 - intent drift
 - capability drift
 - mentoring-mode enforcement
@@ -64,7 +65,7 @@ The suite is explicit and blocking in CI because it guards live-tool-readiness i
 Full suite:
 
 ```text
-18/18 passed, gates PASS
+19/19 passed, gates PASS
 semantic_policy_accuracy=1.0
 safe_allow_accuracy=1.0
 unsafe_deny_accuracy=1.0
@@ -73,7 +74,7 @@ false_positive_deny_rate=0.0
 
 Splits:
 
-- development: 8/8 passed
+- development: 9/9 passed
 - held_out: 4/4 passed
 - adversarial: 6/6 passed
 

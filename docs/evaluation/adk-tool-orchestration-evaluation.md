@@ -21,6 +21,8 @@ Current cases:
 - `adk_recommendations_disabled_no_tool_bypass`: live ADK disabled; recommendation route does not call raw recommendation fallback.
 - `adk_related_allowed_for_pattern_transfer`: mocked ADK requests `problem.related_problems` during `pattern_transfer`; semantic policy allows it.
 - `adk_pattern_transfer_disabled_no_tool_bypass`: live ADK disabled; pattern-transfer route does not call raw pattern-transfer fallback.
+- `adk_code_review_static_allowed`: mocked ADK requests `code.review_static` during `code_review`; semantic policy allows it and the deterministic static review workflow runs through the gateway.
+- `adk_code_review_disabled_no_tool_bypass`: live ADK disabled; code-review routing does not call the raw code-review fallback without an approved tool request.
 
 ## Metrics
 
@@ -47,5 +49,7 @@ It is intentionally not part of `--suite all`, preserving the accepted determini
 - CI uses mocked ADK decisions, not live Gemini calls.
 - Only the narrow `/mentor/route` slice is evaluated.
 - The suite verifies event presence and policy outcomes, not broad model quality.
-- Only two tool IDs are in scope.
+- Three tool IDs are in scope: `problem.detect_pattern`, `problem.related_problems`, and `code.review_static`.
 - Recommendation and pattern-transfer routing currently require an explicit related-problems tool request.
+- Governed code-review routing currently requires an explicit static-review tool request.
+- The static code-review tool does not execute learner code and does not prove runtime correctness.

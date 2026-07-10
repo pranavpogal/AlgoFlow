@@ -15,10 +15,10 @@ Implemented narrow runtime slice:
 - New route: `POST /api/v1/mentor/route`.
 - Runtime: `AdkCoordinatorRuntime`.
 - Real ADK object: a narrow `google.adk.agents.Agent` coordinator with structured output schema.
-- Current routed capabilities: `problem_analysis`, `next_hint`, `recommendations`, and `pattern_transfer`.
+- Current routed capabilities: `problem_analysis`, `next_hint`, `recommendations`, `pattern_transfer`, and `code_review`.
 - Deterministic fallback: always available and used when `ENABLE_LIVE_ADK=false`.
 - Live invocation: available only when `ENABLE_LIVE_ADK=true` and `GOOGLE_API_KEY` is configured.
-- Tool request contract: `CoordinatorDecision.tool_requests` can request only `problem.detect_pattern` or `problem.related_problems`.
+- Tool request contract: `CoordinatorDecision.tool_requests` can request only `problem.detect_pattern`, `problem.related_problems`, or `code.review_static`.
 - Tool execution boundary: every requested tool is rebuilt from trusted server context and executed only through `ToolGateway`.
 - Trajectory capture: request ID, trace ID, session ID, runtime mode, selected capability, selected Skill, fallback status, timing, and events.
 - Trajectory persistence: `agent_trajectories` stores the route trajectory after execution.
@@ -60,9 +60,9 @@ Current slice:
 
 - Coordinator ADK Agent timeout: 3 seconds.
 - Direct ADK Agent tools: none.
-- ADK tool request IDs: `problem.detect_pattern`, `problem.related_problems`.
+- ADK tool request IDs: `problem.detect_pattern`, `problem.related_problems`, `code.review_static`.
 - Gateway-mediated runtime tool execution: requested tools execute only through `ToolGateway` after structural and semantic policy checks.
-- Trusted arguments: `problem.detect_pattern` title/description are rebuilt from the server request; `problem.related_problems` pattern is derived from trusted detected pattern when available or from the bounded request argument for explicit recommendation mode.
+- Trusted arguments: `problem.detect_pattern` title/description are rebuilt from the server request; `problem.related_problems` pattern is derived from trusted detected pattern when available or from the bounded request argument for explicit recommendation mode; `code.review_static` title, language, code, problem description, and user intent are rebuilt from the route request rather than trusting model-provided tool arguments.
 - Sub-agents: none.
 - Output schema: `CoordinatorDecision`.
 - Fallback: deterministic route selection.
@@ -145,6 +145,14 @@ request, but uses `RECOMMEND_TRANSFER` intent and `RECOMMEND_TRANSFER` mode. If 
 pattern-transfer tool request exists, the route returns a safe empty `PatternTransferResponse`
 instead of calling the legacy raw pattern-transfer path.
 
+For `code_review`, the route requires an explicit approved `code.review_static` request from the
+coordinator. The gateway treats the tool as a medium-risk draft operation and semantic policy
+requires `code_review` capability, `CODE_REVIEW` intent, and `CODE_REVIEW` mentoring mode. The
+tool delegates to the deterministic static code-review workflow and never executes learner code.
+If no approved code-review tool request exists, the route returns a safe policy-gated
+`CodeReviewResponse` explaining that no review was performed instead of calling the legacy raw
+review path.
+
 ## Evaluation
 
 Explicit suite:
@@ -166,6 +174,6 @@ Set `ENABLE_LIVE_ADK=false` or use the existing direct deterministic endpoints. 
 
 - Direct ADK tool invocation.
 - Trajectory retention/deletion policy.
-- ADK routing for additional capabilities beyond pattern transfer.
+- ADK routing for additional capabilities beyond code review.
 - Model/token/cost metrics.
 - Accepted-baseline promotion for ADK routing suite.

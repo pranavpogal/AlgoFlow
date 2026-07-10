@@ -34,7 +34,7 @@ Aliases:
 
 ## Gates
 
-All three metrics currently require `1.0` because the fixture set is tiny and deterministic.
+All four metrics currently require `1.0` because the fixture set is tiny and deterministic.
 
 ## Baseline Relationship
 
@@ -44,9 +44,12 @@ The ADK routing suite is not included in `--suite all` yet. This preserves the P
 
 Current local result:
 
-- 3 cases
-- 3 passed
+- 6 cases
+- 6 passed
 - routing accuracy: 1.0
 - trajectory event coverage: 1.0
 - trajectory identity completeness: 1.0
 - fallback policy accuracy: 1.0
+
+The current case set includes explicit routes for hints, problem analysis, recommendations,
+pattern transfer, and code review.
