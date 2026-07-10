@@ -19,14 +19,37 @@ Current persistence defaults are local SQLite and local ChromaDB path. These are
 
 ## Current Deployment Limitations
 
-- No production auth/session boundary.
-- No migrations.
+- No OAuth/OIDC provider integration.
+- No Alembic migration files yet.
 - No CI/CD.
 - No Secret Manager integration.
 - No Cloud SQL config.
 - No OpenTelemetry/Cloud Trace integration.
 - Frontend Dockerfile runs development server.
-- Production build currently has a typed-route issue that Phase 2 should fix.
+
+## Production-Like Backend Configuration
+
+Production-like environments must not use local SQLite or startup `create_all`.
+
+Required baseline settings:
+
+```bash
+ENVIRONMENT=production
+DATABASE_URL=postgresql+asyncpg://user:password@host:5432/algoflow
+AUTO_CREATE_DB_SCHEMA=false
+CHROMA_PATH=managed-chroma
+AUTH_MODE=hmac
+AUTH_TOKEN_SECRET=<long-random-secret>
+```
+
+Trusted-header mode is available only for deployments behind a separately authenticated gateway:
+
+```bash
+AUTH_MODE=trusted_header
+TRUSTED_HEADER_AUTH_ENABLED=true
+```
+
+In that mode the gateway must set `x-authenticated-user-id`; public clients must not be allowed to spoof it.
 
 ## Target Google Cloud Direction
 
@@ -56,6 +79,6 @@ Preferred initial target:
 - Policy gateway for user-scoped data and tools.
 - Request/trace IDs.
 - Structured error handling.
-- Config validation rejecting local SQLite/Chroma in production.
+- Config validation rejecting local SQLite, non-asyncpg PostgreSQL URLs, local Chroma, and startup schema creation in production.
 - CI/CD quality gates.
 - Security and evaluation smoke tests.

@@ -30,8 +30,8 @@ This threat model covers the AlgoFlow web app, FastAPI backend, agent/Skill runt
 
 | Threat | Current Exposure | Target Control | Priority |
 |---|---|---|---|
-| IDOR via client-supplied `user_id` | Reduced: write routes now use resolved principal, but schemas still include demo `user_id` and full auth is not implemented | Auth-derived user IDs; ignore client user IDs; authorization checks | P0 |
-| Cross-user memory leakage | High if deployed multi-user | Tenant-scoped DB/vector queries; policy gateway; tests | P0 |
+| IDOR via client-supplied `user_id` | Reduced: write routes use resolved principal; production-like mode requires bearer auth or explicitly enabled trusted-header auth | Auth-derived user IDs; ignore client user IDs; authorization checks | P0 |
+| Cross-user memory leakage | Reduced by same-user memory retrieval policy, still needs managed tenant/auth integration | Tenant-scoped DB/vector queries; policy gateway; tests | P0 |
 | Prompt injection from problem statements | Medium now, high with live LLM | Trusted/untrusted context separation; instruction hierarchy; semantic policy | P1 |
 | Indirect prompt injection from retrieved memory | Future high | Retrieval provenance; retrieved content cannot override system/policy | P1 |
 | Arbitrary code execution | Future critical | Never execute in FastAPI; isolated sandbox with limits; disabled stub first | P0 |
@@ -46,14 +46,15 @@ This threat model covers the AlgoFlow web app, FastAPI backend, agent/Skill runt
 ## Current Security Findings
 
 - No production OAuth/OIDC authentication provider exists yet.
-- Phase 2 adds local-safe principal resolution and production-like `x-authenticated-user-id` enforcement.
+- Production-like mode now defaults to HMAC bearer authentication and requires `AUTH_TOKEN_SECRET`.
+- Trusted-header auth is available only when explicitly configured for a separately authenticated gateway.
 - Request body `user_id` is no longer trusted by write workflows; routes pass the resolved principal user instead.
 - Analytics now enforces same-user access.
-- Memory writes still need a fuller policy gateway and audit record.
+- Memory retrieval now has same-user policy and provenance; memory writes still need fuller typed policy by category/sensitivity/retention.
 - No input size limits are enforced by schemas.
 - A basic centralized error envelope exists for validation/internal errors; broader redaction policy still needs to mature.
 - No code execution exists, which avoids immediate RCE, but no safe architecture is ready for future execution.
-- Chroma metadata is scoped by resolved `user_id`, but production-grade auth and vector access policy still need to replace trusted-header scaffolding.
+- Chroma metadata is scoped by resolved `user_id`, and memory retrieval enforces same-user access before vector search.
 
 ## Required Controls
 
@@ -64,7 +65,7 @@ This threat model covers the AlgoFlow web app, FastAPI backend, agent/Skill runt
 - Agent/Skill can access only declared tools.
 - Tool gateway validates args/results.
 - Environment-gated production restrictions.
-- Production config rejects local SQLite/Chroma unless explicitly allowed.
+- Production config rejects local SQLite, non-asyncpg PostgreSQL URLs, local Chroma, and startup schema creation.
 
 ### Semantic Gating
 

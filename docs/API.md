@@ -17,9 +17,9 @@ Base path: `/api/v1`
 - `GET /analytics/{user_id}`: readiness, mastery, mistakes, and velocity derived from current memory and learning-event evidence.
 - `POST /mock-interview/turn`: keyword-driven interviewer response.
 
-## Current Identity Limitation
+## Current Identity Boundary
 
-Routes now resolve a local-safe principal from headers or `demo-user`, and write workflows ignore request body `user_id`. This is safer than the original prototype, but it is still not full production authentication. Production behavior currently requires `x-authenticated-user-id` as a trusted-header scaffold until OAuth/OIDC is implemented.
+Routes resolve a principal before service code runs, and write workflows ignore request body `user_id`. Local development remains convenient, but production-like environments now fail closed unless an explicit auth mode is configured.
 
 ## Current Request Boundary Foundation
 
@@ -42,9 +42,12 @@ Local development behavior:
 
 Production-like behavior:
 
-- `x-authenticated-user-id` is required until a real auth provider is added.
+- Default production-like mode is HMAC bearer authentication via `Authorization: Bearer <token>`.
+- `AUTH_TOKEN_SECRET` is required for HMAC bearer authentication.
+- `x-authenticated-user-id` trusted-header mode is allowed only when `AUTH_MODE=trusted_header` and `TRUSTED_HEADER_AUTH_ENABLED=true`.
 - Client-supplied body `user_id` must not determine data ownership.
 - Cross-user analytics access returns `FORBIDDEN`.
+- OAuth/OIDC is still a future enhancement; HMAC bearer auth is a deployable boundary for controlled demos/staging, not a managed identity provider.
 
 Learning evidence:
 
