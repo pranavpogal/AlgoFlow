@@ -4,6 +4,7 @@ from collections import Counter, defaultdict
 from copy import deepcopy
 from dataclasses import dataclass, field
 from enum import StrEnum
+import re
 from typing import Any
 
 
@@ -198,6 +199,216 @@ CURATED_PROBLEMS = {
     },
 }
 
+CURATED_PROBLEMS_BY_NUMBER = {
+    "1": {
+        "difficulty": "Easy",
+        "primary_pattern": "hash_lookup",
+        "primary_topic_label": "Arrays and Hashing",
+        "primary_pattern_label": "Hash Map Lookup",
+        "subpatterns": ["Complement Search", "One-Pass Hashing"],
+        "structural_cues": ["target complement lookup", "seen-value index map"],
+        "prerequisites": ["Arrays", "Hash Maps", "Time Complexity"],
+        "related_patterns": ["Frequency Counting", "Prefix Sum Lookup"],
+        "confidence": 0.97,
+        "reasoning": "Two Sum is a canonical complement-search problem: while scanning the array, the mentor should look for target - nums[i] in a hash map instead of exploring pairs blindly.",
+    },
+    "20": {
+        "difficulty": "Easy",
+        "primary_pattern": "stack_matching",
+        "primary_topic_label": "Stack",
+        "primary_pattern_label": "Stack-Based Matching",
+        "subpatterns": ["LIFO Processing", "Pair Validation"],
+        "structural_cues": ["nested delimiter matching", "last-opened bracket must close first"],
+        "prerequisites": ["Stack", "Strings"],
+        "related_patterns": ["Monotonic Stack"],
+        "confidence": 0.97,
+    },
+    "53": {
+        "difficulty": "Medium",
+        "primary_pattern": "decision_dp",
+        "primary_pattern_label": "Kadane's Algorithm",
+        "subpatterns": ["Running State Optimization", "Local vs Global Optimum"],
+        "structural_cues": ["best subarray ending at current index", "local optimum updates global optimum"],
+        "prerequisites": ["Arrays", "Dynamic Programming"],
+        "related_patterns": ["Prefix Sums", "Divide and Conquer"],
+        "confidence": 0.96,
+        "reasoning": "Maximum Subarray is the canonical Kadane pattern: track the best sum ending at the current position and the best global answer seen so far.",
+    },
+    "200": {
+        "difficulty": "Medium",
+        "primary_pattern": "graph_dfs",
+        "primary_pattern_label": "Connected Components Traversal",
+        "subpatterns": ["DFS", "BFS", "Grid Traversal", "Flood Fill"],
+        "structural_cues": ["grid cells form an implicit graph", "each island is a connected component"],
+        "prerequisites": ["2D Arrays", "Graph Traversal", "Recursion or Queue"],
+        "related_patterns": ["Union Find", "Multi-source BFS"],
+        "confidence": 0.96,
+    },
+    "198": {
+        "difficulty": "Medium",
+        "primary_pattern": "decision_dp",
+        "primary_pattern_label": "Take-or-Skip DP",
+        "subpatterns": ["State Compression", "Linear DP"],
+        "structural_cues": ["each house creates a take-or-skip choice", "adjacent houses cannot both be selected"],
+        "prerequisites": ["Arrays", "Dynamic Programming"],
+        "related_patterns": ["Tree DP", "State Compression"],
+        "confidence": 0.97,
+    },
+    "875": {
+        "difficulty": "Medium",
+        "primary_pattern": "binary_search_answer",
+        "subpatterns": ["Monotonic Feasibility Check", "Search Space Reduction"],
+        "structural_cues": ["candidate eating speed is feasible or infeasible", "higher speeds preserve feasibility"],
+        "prerequisites": ["Binary Search", "Ceiling Division", "Time Complexity"],
+        "related_patterns": ["Greedy Feasibility Check", "Minimize Maximum"],
+        "confidence": 0.96,
+    },
+    "3": {
+        "difficulty": "Medium",
+        "primary_pattern": "variable_window",
+        "primary_pattern_label": "Variable-Size Sliding Window",
+        "subpatterns": ["Frequency Tracking", "Last-Seen Index", "Two Pointers"],
+        "structural_cues": ["maintain a duplicate-free substring window", "move the left boundary when a repeated character appears"],
+        "prerequisites": ["Hash Maps or Hash Sets", "Strings", "Two Pointers"],
+        "related_patterns": ["Frequency Counting", "Hash Lookup"],
+        "confidence": 0.96,
+    },
+    "207": {
+        "difficulty": "Medium",
+        "primary_pattern": "topological_sort",
+        "primary_pattern_label": "Cycle Detection in Directed Graph",
+        "subpatterns": ["Topological Sort", "Kahn's Algorithm", "DFS Coloring"],
+        "structural_cues": ["courses and prerequisites form directed edges", "a cycle makes completion impossible"],
+        "prerequisites": ["DFS or BFS", "Directed Graphs", "Indegree"],
+        "related_patterns": ["DFS Traversal", "Graph Coloring"],
+        "confidence": 0.96,
+    },
+    "128": {
+        "difficulty": "Medium",
+        "primary_pattern": "hash_lookup",
+        "primary_topic_label": "Arrays and Hashing",
+        "primary_pattern_label": "Hash Set Sequence Expansion",
+        "subpatterns": ["Sequence-Start Detection", "O(n) Expected Lookup", "Union Find as Alternative"],
+        "structural_cues": ["only expand from numbers that start a sequence", "hash-set membership makes expansion expected O(1)"],
+        "prerequisites": ["Amortized Complexity", "Arrays", "Hash Sets"],
+        "related_patterns": ["Union Find", "Sorting"],
+        "confidence": 0.95,
+    },
+    "560": {
+        "difficulty": "Medium",
+        "primary_pattern": "prefix_sum_lookup",
+        "primary_topic_label": "Prefix Sum and Hashing",
+        "primary_pattern_label": "Prefix Sum Frequency Map",
+        "subpatterns": ["Running Prefix Sum", "Complement Frequency Lookup"],
+        "structural_cues": ["current prefix minus k identifies previous prefixes", "frequency map counts all valid starts"],
+        "prerequisites": ["Hash Maps", "Prefix Sums", "Subarray Reasoning"],
+        "related_patterns": ["Hash Lookup", "Sliding Window"],
+        "confidence": 0.96,
+    },
+    "287": {
+        "difficulty": "Medium",
+        "primary_pattern": "linked_list_pointers",
+        "primary_topic_label": "Linked List and Array Reasoning",
+        "primary_pattern_label": "Floyd's Cycle Detection",
+        "subpatterns": ["Array-as-Functional-Graph", "Slow and Fast Pointers", "Cycle Entry Detection"],
+        "structural_cues": ["array values point to next indices", "duplicate creates a cycle entry"],
+        "prerequisites": ["Array Indexing", "Linked List Cycle Detection", "Two Pointers"],
+        "related_patterns": ["Binary Search on Answer", "Hash Set Detection"],
+        "confidence": 0.95,
+    },
+    "41": {
+        "difficulty": "Hard",
+        "primary_pattern": "hash_lookup",
+        "primary_topic_label": "Arrays",
+        "primary_pattern_label": "Cyclic Placement",
+        "subpatterns": ["Index-as-Hash", "In-Place Rearrangement", "Value-to-Index Mapping"],
+        "structural_cues": ["place value x at index x - 1", "array indices act as an in-place hash table"],
+        "prerequisites": ["Arrays", "In-Place Algorithms", "Index Manipulation"],
+        "related_patterns": ["Cyclic Sort", "Hash Set Detection"],
+        "confidence": 0.94,
+    },
+    "42": {
+        "difficulty": "Hard",
+        "primary_pattern": "opposing_pointers",
+        "primary_topic_label": "Arrays and Two Pointers",
+        "primary_pattern_label": "Two-Pointer Boundary Compression",
+        "subpatterns": ["Left Maximum", "Right Maximum", "Monotonic Stack Alternative", "Prefix-Suffix Alternative"],
+        "structural_cues": ["water level is limited by the smaller boundary", "move the side with the lower maximum"],
+        "prerequisites": ["Arrays", "Prefix Maximums", "Two Pointers"],
+        "related_patterns": ["Monotonic Stack", "Prefix-Suffix Arrays"],
+        "confidence": 0.95,
+    },
+    "134": {
+        "difficulty": "Medium",
+        "primary_pattern": "greedy_sorting",
+        "primary_pattern_label": "Greedy Reset",
+        "subpatterns": ["Global Feasibility", "Running Balance", "Candidate Elimination"],
+        "structural_cues": ["negative running balance invalidates every start in the current segment", "total surplus determines global feasibility"],
+        "prerequisites": ["Arrays", "Greedy Reasoning", "Prefix Balance"],
+        "related_patterns": ["Prefix Sums", "Candidate Elimination"],
+        "confidence": 0.95,
+    },
+    "739": {
+        "difficulty": "Medium",
+        "primary_pattern": "monotonic_stack",
+        "primary_topic_label": "Stack",
+        "subpatterns": ["Next Greater Element", "Index Stack", "Deferred Resolution"],
+        "structural_cues": ["warmer future day resolves earlier colder indices", "unresolved indices stay on a monotonic stack"],
+        "prerequisites": ["Arrays", "Stack"],
+        "related_patterns": ["Next Greater Element", "Range Contribution"],
+        "confidence": 0.96,
+    },
+    "684": {
+        "difficulty": "Medium",
+        "primary_pattern": "union_find",
+        "subpatterns": ["Disjoint Set Union", "Cycle Detection", "Path Compression", "Union by Rank or Size"],
+        "structural_cues": ["an edge is redundant when both endpoints are already connected", "component merges reveal the first cycle edge"],
+        "prerequisites": ["Disjoint Sets", "Graphs", "Trees"],
+        "related_patterns": ["DFS Cycle Detection", "Spanning Trees"],
+        "confidence": 0.96,
+    },
+    "721": {
+        "difficulty": "Medium",
+        "primary_pattern": "union_find",
+        "primary_topic_label": "Graphs and Disjoint Sets",
+        "subpatterns": ["Connected Components", "Identifier Mapping", "Hash Map Indexing"],
+        "structural_cues": ["shared emails connect account records", "union operations group identifiers into components"],
+        "prerequisites": ["Disjoint Set Union", "Graph Connectivity", "Hash Maps"],
+        "related_patterns": ["DFS Connected Components", "Identifier Normalization"],
+        "confidence": 0.95,
+    },
+    "76": {
+        "difficulty": "Hard",
+        "primary_pattern": "variable_window",
+        "primary_pattern_label": "Variable-Size Sliding Window",
+        "subpatterns": ["Frequency Deficit Tracking", "Expand-and-Shrink", "Validity Counter"],
+        "structural_cues": ["expand until all required characters are covered", "shrink while preserving validity"],
+        "prerequisites": ["Hash Maps", "Strings", "Two Pointers"],
+        "related_patterns": ["Frequency Counting", "Two Pointers"],
+        "confidence": 0.96,
+    },
+    "410": {
+        "difficulty": "Hard",
+        "primary_pattern": "binary_search_answer",
+        "subpatterns": ["Greedy Feasibility Check", "Minimize Maximum", "Monotonic Predicate"],
+        "structural_cues": ["candidate largest sum determines whether at most k partitions are possible", "larger limits remain feasible"],
+        "prerequisites": ["Binary Search", "Greedy Validation", "Prefix Reasoning"],
+        "related_patterns": ["Painter's Partition", "Capacity To Ship Packages"],
+        "confidence": 0.95,
+    },
+    "301": {
+        "difficulty": "Hard",
+        "primary_pattern": "choice_exploration",
+        "primary_topic_label": "Graph Search and Backtracking",
+        "primary_pattern_label": "BFS by Removal Level",
+        "subpatterns": ["State-Space Search", "Minimum-Level Discovery", "Deduplication", "Backtracking Alternative"],
+        "structural_cues": ["each removal creates a neighboring string state", "BFS level order finds the minimum removals first"],
+        "prerequisites": ["BFS", "Parentheses Validation", "Sets", "Strings"],
+        "related_patterns": ["Choice Exploration", "Parentheses Validation"],
+        "confidence": 0.94,
+    },
+}
+
 RULES = [
     ("binary_search_answer", 0.9, ["minimum capacity", "minimize maximum", "smallest maximum", "ship within", "koko", "monotonic predicate", "binary search on answer"], "monotonic feasibility predicate over answer space"),
     ("shortest_path", 0.88, ["shortest path", "minimum distance", "weighted graph", "dijkstra"], "shortest-path relaxation or distance objective"),
@@ -265,14 +476,14 @@ RELATED_PATTERNS = {
 
 def classify_problem(context: ProblemClassificationContext) -> ProblemClassificationResult:
     haystack = _haystack(context)
-    curated = _curated_match(context.title)
+    curated = _curated_match(context)
     if curated:
         return _result_from_curated(context, curated)
 
     scores: dict[str, float] = defaultdict(float)
     evidence: list[ClassificationEvidence] = []
     for pattern_id, weight, phrases, cue in RULES:
-        matched = [phrase for phrase in phrases if phrase in haystack]
+        matched = [phrase for phrase in phrases if _phrase_in_haystack(phrase, haystack)]
         if not matched:
             continue
         confidence = min(0.92, weight + min(0.05, (len(matched) - 1) * 0.02))
@@ -340,10 +551,12 @@ def classify_problem(context: ProblemClassificationContext) -> ProblemClassifica
 def _result_from_curated(context: ProblemClassificationContext, curated: dict[str, Any]) -> ProblemClassificationResult:
     pattern_id = curated["primary_pattern"]
     topic_id = PATTERN_TO_TOPIC[pattern_id]
+    topic_label = curated.get("primary_topic_label", TOPIC_LABELS[topic_id])
+    pattern_label = curated.get("primary_pattern_label", PATTERN_LABELS[pattern_id])
     evidence = [
         ClassificationEvidence(
             observed_evidence=context.title,
-            inferred_label=PATTERN_LABELS[pattern_id],
+            inferred_label=pattern_label,
             confidence=curated["confidence"],
             provenance=Provenance.CURATED_METADATA,
             cue_type="canonical problem metadata",
@@ -352,9 +565,9 @@ def _result_from_curated(context: ProblemClassificationContext, curated: dict[st
     return ProblemClassificationResult(
         problem=context.title,
         difficulty=curated["difficulty"],
-        primary_topic=TOPIC_LABELS[topic_id],
+        primary_topic=topic_label,
         secondary_topics=[],
-        primary_pattern=PATTERN_LABELS[pattern_id],
+        primary_pattern=pattern_label,
         subpatterns=deepcopy(curated["subpatterns"]),
         structural_cues=deepcopy(curated["structural_cues"]),
         prerequisites=deepcopy(curated["prerequisites"]),
@@ -364,7 +577,7 @@ def _result_from_curated(context: ProblemClassificationContext, curated: dict[st
         evidence=evidence,
         provenance=[Provenance.CURATED_METADATA],
         unsupported_claims=["Curated classification does not imply learner mastery."],
-        reasoning=_reasoning(pattern_id, curated["structural_cues"], curated["confidence"]),
+        reasoning=curated.get("reasoning") or _reasoning(pattern_id, curated["structural_cues"], curated["confidence"]),
     )
 
 
@@ -398,12 +611,21 @@ def _fallback_result(context: ProblemClassificationContext) -> ProblemClassifica
     )
 
 
-def _curated_match(title: str) -> dict[str, Any] | None:
-    lowered = title.lower()
+def _curated_match(context: ProblemClassificationContext) -> dict[str, Any] | None:
+    if context.problem_number and context.problem_number in CURATED_PROBLEMS_BY_NUMBER:
+        return CURATED_PROBLEMS_BY_NUMBER[context.problem_number]
+    lowered = context.title.lower()
     for known_title, metadata in CURATED_PROBLEMS.items():
         if known_title in lowered:
             return metadata
     return None
+
+
+def _phrase_in_haystack(phrase: str, haystack: str) -> bool:
+    if re.fullmatch(r"[a-z0-9 ]+", phrase):
+        pattern = r"(?<![a-z0-9])" + r"\s+".join(re.escape(part) for part in phrase.split()) + r"(?![a-z0-9])"
+        return re.search(pattern, haystack) is not None
+    return phrase in haystack
 
 
 def _haystack(context: ProblemClassificationContext) -> str:
