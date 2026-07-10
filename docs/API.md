@@ -14,7 +14,7 @@ Base path: `/api/v1`
 - `POST /study-plan`: deterministic study-plan generation from current memory snapshot.
 - `POST /recommendations`: learner-scoped structural transfer recommendations with confidence, evidence, and fallback metadata.
 - `POST /pattern-transfer`: deterministic Pattern Transfer Skill with transfer taxonomy, structural bridge explanations, and learner-evidence grounding.
-- `GET /analytics/{user_id}`: readiness, mastery, mistakes, and velocity derived from current memory and learning-event evidence.
+- `GET /analytics/{user_id}`: readiness, readiness components, mastery, topic risk, mistake trends, learning velocity, mock-interview readiness, next best actions, and limitations derived from current memory and learning-event evidence.
 - `POST /mock-interview/turn`: stateful deterministic mock-interview workflow with transcript persistence, persona style, rubric scorecard, stage tracking, and memory-aware feedback.
 
 ## Current Identity Boundary
@@ -67,9 +67,10 @@ Policy-decision evidence:
 
 Learner intelligence:
 
-- Analytics now derives readiness, strong topics, weak topics, topic mastery, mistake summaries, confidence, and evidence counts from attempts, mistakes, and learning events.
+- Analytics now derives readiness, readiness components, strong topics, weak topics, topic mastery, topic risk, mistake trends, learning velocity, mock-interview readiness, next best actions, confidence, and evidence counts from attempts, mistakes, learning events, and interview scorecards.
 - Passive events such as `AnalyticsViewed` do not increase mastery confidence.
 - New users no longer receive fabricated strong or weak topics in analytics.
+- Analytics limitations are returned explicitly so scores are not presented as guarantees of interview performance.
 
 ## Target Contract Direction
 

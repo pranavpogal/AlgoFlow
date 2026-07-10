@@ -22,6 +22,7 @@ Current truth:
 - ADK agents are defined in `backend/app/agents/adk_agents.py` but are not invoked in the live request path.
 - ChromaDB retrieval is used as bounded, same-user advisory memory context in mentor workflows.
 - Mock interviews now persist transcript and rubric scorecard state in `interview_sessions`.
+- Analytics derive readiness components, topic risk, mistake trends, learning velocity, next best actions, and mock-interview readiness from persisted learner evidence without invoking a live model.
 
 ## Target Architecture Direction
 
@@ -59,6 +60,7 @@ flowchart TD
 - OAuth/OIDC is not integrated yet; production-like mode uses HMAC bearer auth or explicit trusted-header auth.
 - ADK remains a narrow coordinator route, not a broad all-agent runtime.
 - Mock interviews are deterministic and stateful, not live Gemini interviewer sessions.
+- Analytics remain deterministic and evidence-backed; they are not yet a live narrative analytics agent or predictive readiness model.
 - No secure code execution service.
 - No Alembic migration files or cloud deployment pipeline yet.
 
