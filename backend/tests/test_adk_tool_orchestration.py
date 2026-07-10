@@ -189,6 +189,26 @@ async def test_adk_runtime_deterministic_route_can_select_pattern_transfer() -> 
 
 
 @pytest.mark.asyncio
+async def test_adk_runtime_deterministic_route_can_select_code_review() -> None:
+    runtime = AdkCoordinatorRuntime(settings=Settings(enable_live_adk=False))
+    trajectory = Trajectory.start("mentor_route", session_id="session_code_review")
+
+    decision = await runtime.route(
+        MentorRoutingInput(
+            requested_capability="code_review",
+            user_message="Review my code and find the bug.",
+            title="House Robber",
+            description="Find max sum without adjacent houses.",
+        ),
+        trajectory,
+    )
+
+    assert decision.selected_capability == "code_review"
+    assert decision.selected_skill == "code_review_workflow"
+    assert trajectory.fallback_used is True
+
+
+@pytest.mark.asyncio
 async def test_mentor_route_executes_adk_requested_related_problems_for_recommendations(monkeypatch) -> None:
     async def invoker(agent, routing_input: MentorRoutingInput, trajectory: Trajectory):
         return {
@@ -305,6 +325,65 @@ async def test_mentor_route_executes_adk_requested_related_problems_for_pattern_
 
 
 @pytest.mark.asyncio
+async def test_mentor_route_executes_adk_requested_static_code_review(monkeypatch) -> None:
+    async def invoker(agent, routing_input: MentorRoutingInput, trajectory: Trajectory):
+        return {
+            "selected_capability": "code_review",
+            "selected_skill": "code_review_workflow",
+            "confidence": 0.9,
+            "rationale": "Mock ADK requested governed static code review.",
+            "fallback_allowed": True,
+            "tool_requests": [
+                {
+                    "tool_id": "code.review_static",
+                    "purpose": "Review learner code without executing it.",
+                    "arguments": {"code": "Untrusted model-provided code is ignored."},
+                }
+            ],
+        }
+
+    runtime = AdkCoordinatorRuntime(settings=Settings(enable_live_adk=True), invoker=invoker)
+    monkeypatch.setattr(mentor_module, "adk_coordinator_runtime", runtime)
+    await init_db()
+    transport = ASGITransport(app=app)
+
+    async with AsyncClient(transport=transport, base_url="http://testserver") as client:
+        response = await client.post(
+            "/api/v1/mentor/route",
+            json={
+                "requested_capability": "code_review",
+                "user_message": "Review my code and find the bug.",
+                "title": "House Robber",
+                "description": "Find max sum without adjacent houses.",
+                "language": "Python",
+                "code": "def rob(nums):\n    dp = [0] * len(nums)\n    for i in range(len(nums)):\n        dp[i] = max(dp[i-1], nums[i] + dp[i-1])\n    return dp[-1]",
+            },
+            headers={"x-request-id": "req_adk_code_review", "x-user-id": "adk-code-review-user"},
+        )
+        body = response.json()
+        policy_response = await client.get(
+            f"/api/v1/agent-trajectories/{body['trajectory']['trajectory_id']}/policy-decisions",
+            headers={"x-user-id": "adk-code-review-user"},
+        )
+
+    event_types = [event["event_type"] for event in body["trajectory"]["events"]]
+    policy = policy_response.json()[0]
+
+    assert response.status_code == 200
+    assert body["selected_capability"] == "code_review"
+    assert body["selected_skill"] == "code_review_workflow"
+    assert body["result"]["findings"]
+    assert body["result"]["rewrite_allowed"] is False
+    assert "python_ast_parse" in body["result"]["analysis_layers"]
+    assert "ADK_TOOL_REQUESTED" in event_types
+    assert "TOOL_CALL_COMPLETED" in event_types
+    assert policy_response.status_code == 200
+    assert policy["tool_id"] == "code.review_static"
+    assert policy["success"] is True
+    assert policy["metadata"]["semantic_decision"]["reason_code"] == "INTENT_ALIGNED"
+
+
+@pytest.mark.asyncio
 async def test_mentor_route_recommendations_without_tool_request_uses_safe_fallback() -> None:
     await init_db()
     transport = ASGITransport(app=app)
@@ -355,4 +434,33 @@ async def test_mentor_route_pattern_transfer_without_tool_request_uses_safe_fall
     assert body["selected_capability"] == "pattern_transfer"
     assert body["result"]["transfer_to"] == []
     assert body["result"]["fallback_reason"] == "policy_gated_tool_unavailable"
+    assert "TOOL_CALL_COMPLETED" not in event_types
+
+
+@pytest.mark.asyncio
+async def test_mentor_route_code_review_without_tool_request_uses_safe_fallback() -> None:
+    await init_db()
+    transport = ASGITransport(app=app)
+
+    async with AsyncClient(transport=transport, base_url="http://testserver") as client:
+        response = await client.post(
+            "/api/v1/mentor/route",
+            json={
+                "requested_capability": "code_review",
+                "user_message": "Review my code.",
+                "title": "House Robber",
+                "description": "Find max sum without adjacent houses.",
+                "language": "Python",
+                "code": "def rob(nums):\n    return sum(nums)",
+            },
+            headers={"x-request-id": "req_adk_code_review_fallback", "x-user-id": "adk-code-review-fallback"},
+        )
+
+    body = response.json()
+    event_types = [event["event_type"] for event in body["trajectory"]["events"]]
+
+    assert response.status_code == 200
+    assert body["selected_capability"] == "code_review"
+    assert body["result"]["analysis_layers"] == ["policy_gated_tool_unavailable"]
+    assert body["result"]["unsupported_claims"] == ["No code analysis was performed."]
     assert "TOOL_CALL_COMPLETED" not in event_types

@@ -26,8 +26,8 @@ except Exception:  # pragma: no cover - local dependency guard
     InMemorySessionService = None  # type: ignore[assignment]
     genai_types = None  # type: ignore[assignment]
 
-CoordinatorCapability = Literal["problem_analysis", "next_hint", "recommendations", "pattern_transfer"]
-CoordinatorToolId = Literal["problem.detect_pattern", "problem.related_problems"]
+CoordinatorCapability = Literal["problem_analysis", "next_hint", "recommendations", "pattern_transfer", "code_review"]
+CoordinatorToolId = Literal["problem.detect_pattern", "problem.related_problems", "code.review_static"]
 
 
 class CoordinatorToolRequest(BaseModel):
@@ -125,10 +125,10 @@ class LiveAdkDecisionInvoker:
     def _prompt(self, routing_input: MentorRoutingInput) -> str:
         return (
             "Route this AlgoFlow request. Return only JSON matching this schema: "
-            "{selected_capability: 'problem_analysis'|'next_hint'|'recommendations'|'pattern_transfer', "
+            "{selected_capability: 'problem_analysis'|'next_hint'|'recommendations'|'pattern_transfer'|'code_review', "
             "selected_skill: string, "
             "confidence: number, rationale: string, fallback_allowed: boolean, "
-            "tool_requests: optional array of {tool_id: 'problem.detect_pattern'|'problem.related_problems', "
+            "tool_requests: optional array of {tool_id: 'problem.detect_pattern'|'problem.related_problems'|'code.review_static', "
             "purpose: string, arguments: object}}. "
             "Do not solve the coding problem. Do not execute tools. You may only request a tool "
             "when the selected capability needs it, and the server will independently approve or deny it. "
@@ -246,7 +246,7 @@ class AdkCoordinatorRuntime:
             model=self.settings.gemini_model,
             description="Narrow AlgoFlow coordinator for routing mentor requests to deterministic skills.",
             instruction=(
-                "Route only between problem_analysis, next_hint, recommendations, and pattern_transfer. "
+                "Route only between problem_analysis, next_hint, recommendations, pattern_transfer, and code_review. "
                 "Preserve learner agency. "
                 "Never solve the problem. You may request only approved read/draft tools in the "
                 "structured routing decision; never execute tools directly."
@@ -272,6 +272,9 @@ class AdkCoordinatorRuntime:
         if requested in {"next_hint", "hint", "progressive_hinting"}:
             capability: CoordinatorCapability = "next_hint"
             skill = "progressive_hinting_workflow"
+        elif requested in {"code_review", "review_code", "code-review", "review"}:
+            capability = "code_review"
+            skill = "code_review_workflow"
         elif requested in {"pattern_transfer", "transfer", "transfer_learning", "pattern-transfer"}:
             capability = "pattern_transfer"
             skill = "pattern_transfer_workflow"
@@ -281,6 +284,9 @@ class AdkCoordinatorRuntime:
         elif requested in {"problem_analysis", "analyze_problem", "classification"}:
             capability = "problem_analysis"
             skill = "problem_intelligence_workflow"
+        elif "review my code" in message or "code review" in message or "find the bug" in message:
+            capability = "code_review"
+            skill = "code_review_workflow"
         elif "pattern transfer" in message or "transfer this pattern" in message or "pattern evolution" in message:
             capability = "pattern_transfer"
             skill = "pattern_transfer_workflow"

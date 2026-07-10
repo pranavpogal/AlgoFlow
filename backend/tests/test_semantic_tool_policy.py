@@ -27,6 +27,14 @@ def _context(
     arguments = {"title": title, "description": description}
     if tool_id == "problem.related_problems":
         arguments = {"pattern": pattern}
+    if tool_id == "code.review_static":
+        arguments = {
+            "title": title,
+            "language": "Python",
+            "code": "def rob(nums):\n    return sum(nums)",
+            "problem_description": description,
+            "user_intent": "review my code",
+        }
     return SemanticPolicyContext(
         principal_id="semantic-user",
         request_id="req_semantic",
@@ -38,7 +46,7 @@ def _context(
         user_intent=intent,
         mentoring_mode=mode,
         requested_tool_id=tool_id,
-        operation_type="draft" if tool_id == "problem.related_problems" else "read",
+        operation_type="draft" if tool_id in {"problem.related_problems", "code.review_static"} else "read",
         tool_arguments=arguments,
         task_context={"title": title, "description": description, "user_message": user_message},
         trusted_context={"runtime": "test"},
@@ -81,6 +89,21 @@ def test_semantic_policy_denies_capability_tool_mismatch() -> None:
 
     assert decision.decision == "deny"
     assert decision.reason_code.value == "CAPABILITY_TOOL_MISMATCH"
+
+
+def test_semantic_policy_allows_aligned_static_code_review() -> None:
+    decision = evaluate_semantic_policy(
+        _context(
+            tool_id="code.review_static",
+            capability="code_review",
+            intent="CODE_REVIEW",
+            mode=MentoringMode.CODE_REVIEW.value,
+            user_message="Review my code without executing it.",
+        )
+    )
+
+    assert decision.decision == "allow"
+    assert decision.reason_code.value == "INTENT_ALIGNED"
 
 
 def test_semantic_policy_enforces_reveal_authorization() -> None:

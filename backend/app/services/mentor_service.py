@@ -68,6 +68,7 @@ class MentorService:
         detected_via_gateway = None
         related_via_gateway = None
         related_pattern = None
+        code_review_via_gateway = None
         for tool_request in self._tool_requests_for_route(decision):
             trusted_tool_payload = self._trusted_tool_payload_for_route(
                 tool_request,
@@ -109,6 +110,8 @@ class MentorService:
                 if tool_request.tool_id == "problem.related_problems":
                     related_via_gateway = tool_result
                     related_pattern = trusted_tool_payload.get("pattern")
+                if tool_request.tool_id == "code.review_static":
+                    code_review_via_gateway = tool_result
             except ToolGatewayError as exc:
                 if exc.record is not None:
                     tool_policy_records.append(exc.record.to_dict())
@@ -118,7 +121,19 @@ class MentorService:
                     selected_skill=decision.selected_skill,
                     metadata={"error": type(exc).__name__},
                 )
-        if decision.selected_capability == "pattern_transfer":
+        if decision.selected_capability == "code_review":
+            if code_review_via_gateway:
+                result_model = CodeReviewResponse.model_validate(code_review_via_gateway)
+                await self._persist_code_review_response(
+                    session,
+                    self._code_review_request_from_route(payload),
+                    user_id,
+                    result_model,
+                    source_route="mentor.route",
+                )
+            else:
+                result_model = self._safe_policy_denied_code_review()
+        elif decision.selected_capability == "pattern_transfer":
             if related_via_gateway:
                 result_model = self._pattern_transfer_response_from_related(
                     pattern=str(related_pattern or "Unknown"),
@@ -207,7 +222,10 @@ class MentorService:
         tool_arguments: dict[str, Any] | None = None,
     ) -> SemanticPolicyContext:
         hint_intent = detect_intent(payload.user_attempt or payload.user_message, payload.reveal_solution)
-        if selected_capability == "pattern_transfer":
+        if selected_capability == "code_review":
+            user_intent = "CODE_REVIEW"
+            mentoring_mode = MentoringMode.CODE_REVIEW.value
+        elif selected_capability == "pattern_transfer":
             user_intent = "RECOMMEND_TRANSFER"
             mentoring_mode = MentoringMode.RECOMMEND_TRANSFER.value
         elif selected_capability == "recommendations":
@@ -236,7 +254,7 @@ class MentorService:
             user_intent=user_intent,
             mentoring_mode=mentoring_mode,
             requested_tool_id=tool_id,
-            operation_type="draft" if tool_id == "problem.related_problems" else "read",
+            operation_type="draft" if tool_id in {"problem.related_problems", "code.review_static"} else "read",
             tool_arguments=arguments,
             prior_hint_context={"current_hint_level": payload.current_hint_level},
             task_context={
@@ -275,6 +293,14 @@ class MentorService:
             requested_pattern = tool_request.arguments.get("pattern")
             pattern = detected_pattern or (requested_pattern if isinstance(requested_pattern, str) else None)
             return {"pattern": pattern or "Unknown"}
+        if tool_request.tool_id == "code.review_static":
+            return {
+                "title": payload.title,
+                "language": payload.language or "unknown",
+                "code": payload.code or "",
+                "problem_description": payload.problem_description or payload.description,
+                "user_intent": payload.user_message or payload.user_attempt,
+            }
         return {}
 
     def _recommendation_response_from_related(
@@ -366,6 +392,31 @@ class MentorService:
             evidence_hierarchy=[],
             fallback_reason="policy_gated_tool_unavailable",
             same_topic_shortcut_used=False,
+        )
+
+    def _safe_policy_denied_code_review(self) -> CodeReviewResponse:
+        return CodeReviewResponse(
+            correctness="A governed code review requires an approved static-review tool request.",
+            time_complexity="Unknown",
+            space_complexity="Unknown",
+            edge_cases=[],
+            optimization_opportunities=[],
+            readability_feedback=[
+                "No raw code-review fallback was used because the policy-gated tool was unavailable."
+            ],
+            alternative_approaches=[],
+            suspected_mistakes=[],
+            senior_engineer_summary=(
+                "I did not review the code because the governed route did not receive an approved "
+                "code.review_static tool request."
+            ),
+            review_intent="CODE_REVIEW",
+            language_supported=False,
+            analysis_layers=["policy_gated_tool_unavailable"],
+            findings=[],
+            corrected_code=None,
+            rewrite_allowed=False,
+            unsupported_claims=["No code analysis was performed."],
         )
 
     def _safe_policy_denied_hint(self, payload: MentorRouteRequest) -> HintResponse:
@@ -631,6 +682,24 @@ class MentorService:
             rewrite_allowed=review_result.rewrite_allowed,
             unsupported_claims=review_result.unsupported_claims,
         )
+        await self._persist_code_review_response(
+            session,
+            payload,
+            user_id,
+            response,
+            source_route="code-review",
+        )
+        return response
+
+    async def _persist_code_review_response(
+        self,
+        session: AsyncSession,
+        payload: CodeReviewRequest,
+        user_id: str,
+        response: CodeReviewResponse,
+        *,
+        source_route: str,
+    ) -> None:
         await remember_attempt(
             session,
             user_id,
@@ -650,7 +719,7 @@ class MentorService:
                 "code_length": len(payload.code),
                 "has_problem_description": bool(payload.problem_description),
             },
-            metadata={"source_route": "code-review"},
+            metadata={"source_route": source_route},
         )
         await record_learning_event(
             session,
@@ -667,7 +736,7 @@ class MentorService:
                 "analysis_layers": response.analysis_layers,
                 "finding_count": len(response.findings),
             },
-            metadata={"source_route": "code-review"},
+            metadata={"source_route": source_route},
         )
         await record_learning_event(
             session,
@@ -683,7 +752,7 @@ class MentorService:
                 "rewrite_allowed": response.rewrite_allowed,
                 "unsupported_claims": response.unsupported_claims,
             },
-            metadata={"source_route": "code-review"},
+            metadata={"source_route": source_route},
         )
         for finding in response.findings:
             await record_learning_event(
@@ -701,7 +770,7 @@ class MentorService:
                     "location": finding.location.model_dump(),
                     "provenance": finding.provenance,
                 },
-                metadata={"source_route": "code-review"},
+                metadata={"source_route": source_route},
             )
             if finding.severity in {"medium", "high"} and finding.confidence >= 0.7:
                 await record_learning_event(
@@ -716,14 +785,23 @@ class MentorService:
                         "confidence": finding.confidence,
                         "provenance": finding.provenance,
                     },
-                    metadata={"source_route": "code-review"},
+                    metadata={"source_route": source_route},
                 )
         vector_memory.add(
             user_id,
             f"Code review for {payload.title}: mistakes={response.suspected_mistakes}",
             {"type": "code_review", "problem": payload.title},
         )
-        return response
+
+    def _code_review_request_from_route(self, payload: MentorRouteRequest) -> CodeReviewRequest:
+        return CodeReviewRequest(
+            user_id=payload.user_id,
+            title=payload.title,
+            language=payload.language or "unknown",
+            code=payload.code or "",
+            problem_description=payload.problem_description or payload.description,
+            user_intent=payload.user_message or payload.user_attempt,
+        )
 
     async def study_plan(
         self, session: AsyncSession, payload: StudyPlanRequest, user_id: str

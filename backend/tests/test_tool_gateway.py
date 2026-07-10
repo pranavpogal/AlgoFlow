@@ -27,6 +27,14 @@ def _semantic_context(
     payload = {"title": title, "description": description}
     if tool_id == "problem.related_problems":
         payload = {"pattern": "Dynamic Programming"}
+    if tool_id == "code.review_static":
+        payload = {
+            "title": title,
+            "language": "Python",
+            "code": "def rob(nums):\n    return sum(nums)",
+            "problem_description": description,
+            "user_intent": "review my code",
+        }
     return SemanticPolicyContext(
         principal_id="tool-user",
         caller_id="adk_narrow_coordinator",
@@ -34,7 +42,7 @@ def _semantic_context(
         user_intent=intent,
         mentoring_mode=mode,
         requested_tool_id=tool_id,
-        operation_type="draft" if tool_id == "problem.related_problems" else "read",
+        operation_type="draft" if tool_id in {"problem.related_problems", "code.review_static"} else "read",
         tool_arguments=payload,
         task_context={"title": title, "description": description, "user_message": ""},
         reveal_authorized=False,
@@ -110,6 +118,32 @@ def test_tool_gateway_recommend_related_problems_is_draft_only() -> None:
     assert result[0]["title"] == "Climbing Stairs"
     assert record.operation == "draft"
     assert record.risk == "low"
+
+
+def test_tool_gateway_static_code_review_is_policy_gated_draft_tool() -> None:
+    result, record = tool_gateway.call(
+        "code.review_static",
+        {
+            "title": "House Robber",
+            "language": "Python",
+            "code": "def rob(nums):\n    return sum(nums)",
+            "problem_description": "Find max sum without adjacent houses.",
+            "user_intent": "review my code",
+        },
+        caller="adk_narrow_coordinator",
+        principal=Principal(user_id="tool-user", auth_mode="test"),
+        semantic_context=_semantic_context(
+            tool_id="code.review_static",
+            capability="code_review",
+            intent="CODE_REVIEW",
+            mode=MentoringMode.CODE_REVIEW.value,
+        ),
+    )
+
+    assert result["review_intent"] == "REVIEW_CODE"
+    assert "No learner code was executed; correctness remains evidence-limited." in result["unsupported_claims"]
+    assert record.operation == "draft"
+    assert record.risk == "medium"
 
 
 @pytest.mark.asyncio

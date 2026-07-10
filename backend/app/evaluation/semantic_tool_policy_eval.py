@@ -98,7 +98,7 @@ def _context(item: dict[str, Any]) -> SemanticPolicyContext:
         principal_id="eval-user",
         caller_id=item["caller"],
         requested_tool_id=item["tool_id"],
-        operation_type="draft" if item["tool_id"] == "problem.related_problems" else "read",
+        operation_type="draft" if item["tool_id"] in {"problem.related_problems", "code.review_static"} else "read",
         tool_arguments=payload,
         selected_capability=item.get("selected_capability"),
         user_intent=item.get("user_intent"),

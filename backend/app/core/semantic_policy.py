@@ -104,6 +104,7 @@ CAPABILITY_TOOL_ALLOWLIST = {
     "recommendations": {"problem.related_problems"},
     "recommendation": {"problem.related_problems"},
     "pattern_transfer": {"problem.related_problems"},
+    "code_review": {"code.review_static"},
 }
 
 INTENT_TOOL_ALLOWLIST = {
@@ -119,6 +120,7 @@ INTENT_TOOL_ALLOWLIST = {
     "RECOMMEND_TRANSFER": {"problem.related_problems"},
     "RECOMMENDATION": {"problem.related_problems"},
     "RELATED_PROBLEMS": {"problem.related_problems"},
+    "CODE_REVIEW": {"code.review_static"},
 }
 
 MENTORING_MODE_TOOL_ALLOWLIST = {
@@ -127,6 +129,7 @@ MENTORING_MODE_TOOL_ALLOWLIST = {
     MentoringMode.EXPLAIN_CONCEPT.value: {"problem.detect_pattern"},
     MentoringMode.EXPLICIT_SOLUTION.value: {"problem.detect_pattern"},
     MentoringMode.RECOMMEND_TRANSFER.value: {"problem.related_problems"},
+    MentoringMode.CODE_REVIEW.value: {"code.review_static"},
 }
 
 INJECTION_PATTERNS = [
@@ -268,6 +271,13 @@ def _tool_arguments_match_task(context: SemanticPolicyContext) -> bool:
         return bool(context.tool_arguments.get("description")) and (not task_title or task_title == arg_title)
     if context.requested_tool_id == "problem.related_problems":
         return bool(context.tool_arguments.get("pattern"))
+    if context.requested_tool_id == "code.review_static":
+        return bool(
+            context.tool_arguments.get("title")
+            and context.tool_arguments.get("language")
+            and context.tool_arguments.get("code") is not None
+            and (not task_title or task_title == arg_title)
+        )
     return False
 
 

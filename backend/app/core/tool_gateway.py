@@ -12,6 +12,7 @@ from app.core.policy import PolicyDecision
 from app.core.request_context import get_request_context
 from app.core.semantic_policy import SemanticPolicyContext, SemanticPolicyDecision, evaluate_semantic_policy
 from app.runtime.trajectory import Trajectory, TrajectoryEventType
+from app.skills.code_review.workflow import CodeReviewContext, review_code_workflow
 from app.tools.problem_intelligence import detect_problem_pattern, recommend_related_problems
 
 ToolRisk = Literal["low", "medium", "high"]
@@ -33,6 +34,14 @@ class ProblemPatternInput(BaseModel):
 
 class RelatedProblemsInput(BaseModel):
     pattern: str
+
+
+class CodeReviewToolInput(BaseModel):
+    title: str
+    language: str
+    code: str
+    problem_description: str | None = None
+    user_intent: str | None = None
 
 
 @dataclass(frozen=True)
@@ -101,7 +110,47 @@ TOOL_REGISTRY: dict[str, ToolSpec] = {
         handler=lambda payload: recommend_related_problems(payload.pattern),
         allowed_callers={"adk_narrow_coordinator", "mentor_service"},
     ),
+    "code.review_static": ToolSpec(
+        tool_id="code.review_static",
+        description="Return deterministic static code-review feedback without executing learner code.",
+        operation="draft",
+        risk="medium",
+        input_model=CodeReviewToolInput,
+        output_type=dict,
+        handler=lambda payload: _review_code_static(payload),
+        allowed_callers={"adk_narrow_coordinator", "mentor_service"},
+    ),
 }
+
+
+def _review_code_static(payload: CodeReviewToolInput) -> dict[str, Any]:
+    result = review_code_workflow(
+        CodeReviewContext(
+            title=payload.title,
+            language=payload.language,
+            code=payload.code,
+            problem_description=payload.problem_description,
+            user_intent=payload.user_intent,
+        )
+    )
+    return {
+        "correctness": result.correctness,
+        "time_complexity": result.time_complexity,
+        "space_complexity": result.space_complexity,
+        "edge_cases": result.edge_cases,
+        "optimization_opportunities": result.optimization_opportunities,
+        "readability_feedback": result.readability_feedback,
+        "alternative_approaches": result.alternative_approaches,
+        "suspected_mistakes": result.suspected_mistakes,
+        "senior_engineer_summary": result.senior_engineer_summary,
+        "review_intent": result.intent.value,
+        "language_supported": result.language_supported,
+        "analysis_layers": result.analysis_layers,
+        "findings": [finding.to_dict() for finding in result.findings],
+        "corrected_code": result.corrected_code,
+        "rewrite_allowed": result.rewrite_allowed,
+        "unsupported_claims": result.unsupported_claims,
+    }
 
 
 class ToolGateway:

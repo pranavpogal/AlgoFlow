@@ -136,7 +136,7 @@ def _runtime_for_case(case: dict[str, Any]) -> AdkCoordinatorRuntime:
             "tool_requests": case.get("tool_requests", []),
         }
 
-    if mode in {"mock_detect_request", "mock_related_request"}:
+    if mode in {"mock_detect_request", "mock_related_request", "mock_code_review_request"}:
         return AdkCoordinatorRuntime(settings=Settings(enable_live_adk=True), invoker=invoker)
     raise ValueError(f"Unsupported ADK tool orchestration eval mode: {mode}")
 
@@ -164,6 +164,14 @@ def _trusted_tool_payload(
         requested_pattern = tool_request.arguments.get("pattern")
         pattern = detected_pattern or (requested_pattern if isinstance(requested_pattern, str) else None)
         return {"pattern": pattern or "Unknown"}
+    if tool_request.tool_id == "code.review_static":
+        return {
+            "title": payload["title"],
+            "language": payload.get("language", "unknown"),
+            "code": payload.get("code", ""),
+            "problem_description": payload.get("problem_description") or payload["description"],
+            "user_intent": payload.get("user_message"),
+        }
     return {}
 
 
@@ -175,7 +183,10 @@ def _semantic_context(
     tool_arguments: dict[str, Any],
 ) -> SemanticPolicyContext:
     hint_intent = detect_intent(payload.get("user_message"), payload.get("reveal_solution", False))
-    if selected_capability == "pattern_transfer":
+    if selected_capability == "code_review":
+        user_intent = "CODE_REVIEW"
+        mentoring_mode = MentoringMode.CODE_REVIEW.value
+    elif selected_capability == "pattern_transfer":
         user_intent = "RECOMMEND_TRANSFER"
         mentoring_mode = MentoringMode.RECOMMEND_TRANSFER.value
     elif selected_capability == "recommendations":
@@ -202,7 +213,7 @@ def _semantic_context(
         user_intent=user_intent,
         mentoring_mode=mentoring_mode,
         requested_tool_id=tool_id,
-        operation_type="draft" if tool_id == "problem.related_problems" else "read",
+        operation_type="draft" if tool_id in {"problem.related_problems", "code.review_static"} else "read",
         tool_arguments=tool_arguments,
         task_context={
             "title": payload["title"],
