@@ -124,6 +124,12 @@ class InterviewTurnResponse(BaseModel):
     score_delta: int = 0
     feedback: list[str] = Field(default_factory=list)
     memory_context: dict[str, Any] = Field(default_factory=dict)
+    stage: str = "approach"
+    turn_index: int = 1
+    rubric_scores: dict[str, int] = Field(default_factory=dict)
+    scorecard: dict[str, Any] = Field(default_factory=dict)
+    evaluation_summary: str | None = None
+    persona_style: str | None = None
 
 
 class AnalyticsResponse(BaseModel):

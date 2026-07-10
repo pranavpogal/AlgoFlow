@@ -4,17 +4,21 @@ from typing import Any
 from uuid import uuid4
 
 from sqlalchemy.ext.asyncio import AsyncSession
+from fastapi import status
 
 from app.core.auth import Principal
+from app.core.errors import AlgoFlowError
 from app.core.semantic_policy import MentoringMode, SemanticPolicyContext
 from app.core.tool_gateway import ToolGatewayError, tool_gateway
 from app.memory.repository import (
     learning_events_for_user,
+    get_or_create_interview_session,
     record_agent_trajectory,
     record_learning_event,
     record_policy_decision,
     remember_attempt,
     remember_mistakes,
+    update_interview_session,
     user_memory_snapshot,
 )
 from app.memory.learner_state import derive_learner_state
@@ -40,6 +44,7 @@ from app.schemas.mentor import (
 from app.runtime.adk_runtime import CoordinatorToolRequest, MentorRoutingInput, adk_coordinator_runtime
 from app.runtime.trajectory import Trajectory, TrajectoryEventType
 from app.skills.code_review.workflow import CodeReviewContext, review_code_workflow
+from app.skills.mock_interview.workflow import InterviewContext, conduct_interview_turn
 from app.skills.pattern_transfer.workflow import PatternTransferContext, generate_pattern_transfer
 from app.skills.progressive_hinting.workflow import HintContext, detect_intent, generate_progressive_hint
 from app.tools.learning_tools import build_weekly_plan
@@ -1120,7 +1125,6 @@ class MentorService:
         self, session: AsyncSession, payload: InterviewTurnRequest, user_id: str
     ) -> InterviewTurnResponse:
         session_id = payload.session_id or str(uuid4())
-        message = payload.message.lower()
         memory_context = await retrieve_memory_context(
             session,
             user_id=user_id,
@@ -1129,32 +1133,56 @@ class MentorService:
             problem_title=payload.problem_title,
             concept=payload.persona,
         )
-        if "complex" in message or "o(" in message:
-            reply = "Good, now justify why no hidden nested work changes that complexity. What input shape is worst-case?"
-            focus = "complexity justification"
-            score = 2
-        elif "approach" in message or "use" in message:
-            reply = "Walk me through the invariant. At each step, what are you guaranteeing remains true?"
-            focus = "invariant clarity"
-            score = 1
-        elif "edge" in message:
-            reply = "Nice. Add the smallest input and the largest constraint case. Which one is most likely to break your code?"
-            focus = "edge cases"
-            score = 2
-        else:
-            reply = "Start by explaining your approach at a high level, then we will pressure-test it together."
-            focus = "approach structure"
-            score = 0
+        try:
+            interview = await get_or_create_interview_session(
+                session,
+                user_id,
+                session_id=session_id,
+                persona=payload.persona,
+                problem_title=payload.problem_title,
+            )
+        except PermissionError as exc:
+            raise AlgoFlowError(
+                code="FORBIDDEN",
+                message="You are not allowed to access this interview session.",
+                status_code=status.HTTP_403_FORBIDDEN,
+                details={"resource": "interview_session"},
+            ) from exc
+        interview_result = conduct_interview_turn(
+            InterviewContext(
+                session_id=session_id,
+                persona=payload.persona,
+                problem_title=payload.problem_title or interview.problem_title,
+                message=payload.message,
+                transcript=interview.transcript or [],
+                scorecard=interview.scorecard or {},
+                memory_snippets=memory_context.snippets(),
+            )
+        )
+        await update_interview_session(
+            session,
+            interview,
+            transcript_entries=interview_result.transcript_entries,
+            scorecard=interview_result.scorecard,
+            persona=payload.persona,
+            problem_title=payload.problem_title,
+        )
         response = InterviewTurnResponse(
             session_id=session_id,
-            interviewer_message=self._with_memory_note(reply, memory_context),
-            follow_up_focus=focus,
-            score_delta=score,
+            interviewer_message=self._with_memory_note(interview_result.interviewer_message, memory_context),
+            follow_up_focus=interview_result.follow_up_focus,
+            score_delta=interview_result.score_delta,
             feedback=[
-                "Be explicit about invariants and tradeoffs; that is where interview signal appears.",
+                *interview_result.feedback,
                 *self._memory_notes(memory_context),
             ],
             memory_context=self._memory_context_payload(memory_context),
+            stage=interview_result.stage,
+            turn_index=interview_result.turn_index,
+            rubric_scores=interview_result.rubric_scores,
+            scorecard=interview_result.scorecard,
+            evaluation_summary=interview_result.evaluation_summary,
+            persona_style=interview_result.persona_style,
         )
         await record_learning_event(
             session,
@@ -1167,6 +1195,10 @@ class MentorService:
                 "message_length": len(payload.message),
                 "follow_up_focus": response.follow_up_focus,
                 "score_delta": response.score_delta,
+                "stage": response.stage,
+                "turn_index": response.turn_index,
+                "rubric_scores": response.rubric_scores,
+                "scorecard_total": response.scorecard.get("total_score"),
                 "memory_context_applied": memory_context.applied,
                 "memory_provenance": memory_context.provenance(),
             },

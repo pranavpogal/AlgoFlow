@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.base import (
     AgentTrajectory,
+    InterviewSession,
     LearningEvent,
     Mistake,
     PolicyDecisionRecord,
@@ -99,6 +100,54 @@ async def record_learning_event(
     await session.commit()
     await session.refresh(event)
     return event
+
+
+async def get_or_create_interview_session(
+    session: AsyncSession,
+    user_id: str,
+    *,
+    session_id: str,
+    persona: str,
+    problem_title: str | None,
+) -> InterviewSession:
+    await get_or_create_user(session, user_id)
+    interview = await session.get(InterviewSession, session_id)
+    if interview and interview.user_id == user_id:
+        return interview
+    if interview and interview.user_id != user_id:
+        raise PermissionError("Interview session belongs to a different user.")
+    interview = InterviewSession(
+        id=session_id,
+        user_id=user_id,
+        persona=persona,
+        problem_title=problem_title,
+        transcript=[],
+        scorecard={},
+    )
+    session.add(interview)
+    await session.commit()
+    await session.refresh(interview)
+    return interview
+
+
+async def update_interview_session(
+    session: AsyncSession,
+    interview: InterviewSession,
+    *,
+    transcript_entries: list[dict[str, Any]],
+    scorecard: dict[str, Any],
+    persona: str | None = None,
+    problem_title: str | None = None,
+) -> InterviewSession:
+    interview.transcript = [*(interview.transcript or []), *transcript_entries]
+    interview.scorecard = scorecard
+    if persona:
+        interview.persona = persona
+    if problem_title:
+        interview.problem_title = problem_title
+    await session.commit()
+    await session.refresh(interview)
+    return interview
 
 
 async def learning_events_for_user(
