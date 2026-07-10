@@ -1,0 +1,16 @@
+.DS_Store
+.env
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+algoflow.db
+.chroma/
+node_modules/
+.next/
+out/
+dist/
+build/
+coverage/
+evals/artifacts/

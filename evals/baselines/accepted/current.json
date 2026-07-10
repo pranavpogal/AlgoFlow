@@ -1,0 +1,337 @@
+{
+  "baseline_id": "accepted-2026-07-06-deterministic-v1",
+  "contract_version": "ci-eval-contract-v1",
+  "created_at": "2026-07-06T06:20:06.614158+00:00",
+  "eval_version": "eval-platform-v1",
+  "metric_definition_fingerprints": {
+    "intervention_type_accuracy": {
+      "aggregation": "suite",
+      "direction": "higher_is_better",
+      "formula": "matching interventions / case_count",
+      "missing_data": "0 when no cases",
+      "valid_range": "0.0 to 1.0"
+    },
+    "legacy_precision": {
+      "aggregation": "suite",
+      "direction": "higher_is_better",
+      "formula": "legacy coarse true positives / predictions",
+      "missing_data": "0 when no predictions",
+      "valid_range": "0.0 to 1.0"
+    },
+    "multi_label_precision": {
+      "aggregation": "suite",
+      "direction": "higher_is_better",
+      "formula": "secondary label hits / predicted secondary labels",
+      "missing_data": "0 when no predictions",
+      "valid_range": "0.0 to 1.0"
+    },
+    "multi_label_recall": {
+      "aggregation": "suite",
+      "direction": "higher_is_better",
+      "formula": "secondary label hits / expected secondary labels",
+      "missing_data": "1 when no expected labels",
+      "valid_range": "0.0 to 1.0"
+    },
+    "pass_rate": {
+      "aggregation": "suite",
+      "direction": "higher_is_better",
+      "formula": "passed / case_count",
+      "missing_data": "0 when no cases",
+      "valid_range": "0.0 to 1.0"
+    },
+    "pattern_precision": {
+      "aggregation": "suite",
+      "direction": "higher_is_better",
+      "formula": "correct primary patterns / case_count",
+      "missing_data": "0 when no cases",
+      "valid_range": "0.0 to 1.0"
+    },
+    "pattern_recall": {
+      "aggregation": "suite",
+      "direction": "higher_is_better",
+      "formula": "correct primary patterns / expected patterns",
+      "missing_data": "0 when no cases",
+      "valid_range": "0.0 to 1.0"
+    },
+    "primary_topic_accuracy": {
+      "aggregation": "suite",
+      "direction": "higher_is_better",
+      "formula": "correct primary topics / case_count",
+      "missing_data": "0 when no cases",
+      "valid_range": "0.0 to 1.0"
+    },
+    "provenance_completeness": {
+      "aggregation": "suite",
+      "direction": "higher_is_better",
+      "formula": "outputs with provenance / case_count",
+      "missing_data": "0 when no cases",
+      "valid_range": "0.0 to 1.0"
+    },
+    "recommendation_relevance": {
+      "aggregation": "suite/split",
+      "direction": "higher_is_better",
+      "formula": "target-ok cases / case_count",
+      "missing_data": "0 when no cases",
+      "valid_range": "0.0 to 1.0"
+    },
+    "rewrite_policy_compliance_rate": {
+      "aggregation": "suite",
+      "direction": "higher_is_better",
+      "formula": "rewrite policy successes / case_count",
+      "missing_data": "0 when no cases",
+      "valid_range": "0.0 to 1.0"
+    },
+    "same_topic_shortcut_rate": {
+      "aggregation": "suite",
+      "direction": "lower_is_better",
+      "formula": "same-topic shortcut cases / case_count",
+      "missing_data": "0 when no cases",
+      "valid_range": "0.0 to 1.0"
+    },
+    "solution_leakage_rate": {
+      "aggregation": "suite",
+      "direction": "lower_is_better",
+      "formula": "leakage failures / case_count",
+      "missing_data": "0 when no cases",
+      "valid_range": "0.0 to 1.0"
+    },
+    "structural_bridge_correctness": {
+      "aggregation": "suite/split",
+      "direction": "higher_is_better",
+      "formula": "bridge marker successes / case_count",
+      "missing_data": "0 when no cases",
+      "valid_range": "0.0 to 1.0"
+    },
+    "structured_output_validity_rate": {
+      "aggregation": "suite",
+      "direction": "higher_is_better",
+      "formula": "structured outputs / case_count",
+      "missing_data": "0 when no cases",
+      "valid_range": "0.0 to 1.0"
+    },
+    "transfer_type_accuracy": {
+      "aggregation": "suite/split",
+      "direction": "higher_is_better",
+      "formula": "correct transfer type / case_count",
+      "missing_data": "0 when no cases",
+      "valid_range": "0.0 to 1.0"
+    },
+    "unsupported_claim_rate": {
+      "aggregation": "suite",
+      "direction": "lower_is_better",
+      "formula": "unsupported claim failures / case_count",
+      "missing_data": "0 when no cases",
+      "valid_range": "0.0 to 1.0"
+    },
+    "workflow_precision": {
+      "aggregation": "suite",
+      "direction": "higher_is_better",
+      "formula": "coarse true positives / predicted findings",
+      "missing_data": "0 when no predictions",
+      "valid_range": "0.0 to 1.0"
+    }
+  },
+  "metric_definition_versions": {
+    "intervention_type_accuracy": "metric-definition-v1",
+    "legacy_precision": "metric-definition-v1",
+    "multi_label_precision": "metric-definition-v1",
+    "multi_label_recall": "metric-definition-v1",
+    "pass_rate": "metric-definition-v1",
+    "pattern_precision": "metric-definition-v1",
+    "pattern_recall": "metric-definition-v1",
+    "primary_topic_accuracy": "metric-definition-v1",
+    "provenance_completeness": "metric-definition-v1",
+    "recommendation_relevance": "metric-definition-v1",
+    "rewrite_policy_compliance_rate": "metric-definition-v1",
+    "same_topic_shortcut_rate": "metric-definition-v1",
+    "solution_leakage_rate": "metric-definition-v1",
+    "structural_bridge_correctness": "metric-definition-v1",
+    "structured_output_validity_rate": "metric-definition-v1",
+    "transfer_type_accuracy": "metric-definition-v1",
+    "unsupported_claim_rate": "metric-definition-v1",
+    "workflow_precision": "metric-definition-v1"
+  },
+  "notes": "Accepted deterministic baseline for CI evaluation contract v1. Source revision is null because the repository has no HEAD commit yet.",
+  "result_schema_version": "eval-result-v1",
+  "schema_version": "accepted-baseline-v1",
+  "source_revision": null,
+  "suite_results": {
+    "code_review": {
+      "baseline_metrics": {
+        "legacy_precision": 0.625
+      },
+      "capability": "code_review",
+      "case_count": 16,
+      "case_ids": [
+        "ambiguous_code",
+        "binary_search_invariant_error",
+        "complexity_concern_nested_loops",
+        "correct_python_house_robber",
+        "forbid_rewritten_code",
+        "graph_visited_state_text",
+        "incorrect_base_case_dp",
+        "incorrect_dp_transition_house_robber",
+        "integer_overflow_java",
+        "mutation_during_iteration_python",
+        "off_by_one_python",
+        "one_hint_no_rewrite",
+        "request_corrected_code",
+        "syntax_issue_python",
+        "unsupported_language_rust",
+        "wrong_boundary_binary_search"
+      ],
+      "errored": 0,
+      "failed": 0,
+      "metrics": {
+        "intent_satisfaction_rate": 1.0,
+        "legacy_precision": 0.625,
+        "pass_rate": 1.0,
+        "rewrite_policy_compliance_rate": 1.0,
+        "structured_output_validity_rate": 1.0,
+        "unsupported_claim_rate": 0.0,
+        "workflow_precision": 0.692
+      },
+      "passed": 16,
+      "skipped": 0,
+      "split_counts": {
+        "development": 16
+      }
+    },
+    "hinting": {
+      "baseline_metrics": {},
+      "capability": "progressive_hinting",
+      "case_count": 5,
+      "case_ids": [
+        "hint_explicit_solution",
+        "hint_one_dp_no_solution",
+        "hint_previous_state_prompt",
+        "hint_validate_idea",
+        "hint_wrong_state"
+      ],
+      "errored": 0,
+      "failed": 0,
+      "metrics": {
+        "intervention_type_accuracy": 1.0,
+        "pass_rate": 1.0,
+        "solution_leakage_rate": 0.0
+      },
+      "passed": 5,
+      "skipped": 0,
+      "split_counts": {
+        "development": 5
+      }
+    },
+    "pattern_transfer": {
+      "baseline_metrics": {
+        "same_topic_relevance": 0.8
+      },
+      "capability": "pattern_transfer",
+      "case_count": 15,
+      "case_ids": [
+        "adversarial_low_classification",
+        "adversarial_misleading_minimum",
+        "adversarial_repeated_recommendation",
+        "adversarial_same_topic_not_shortcut",
+        "dev_contrastive_same_topic_dp",
+        "dev_far_binary_answer_shipping",
+        "dev_graph_near_dfs_bfs",
+        "dev_misconception_binary",
+        "dev_near_dp_house_to_circular",
+        "dev_prerequisite_unknown_dp",
+        "heldout_graph_topological",
+        "heldout_interval_contrast",
+        "heldout_prefix_to_hash",
+        "heldout_stack_near",
+        "heldout_tree_dp_progression"
+      ],
+      "errored": 0,
+      "failed": 0,
+      "metrics": {
+        "adversarial_recommendation_relevance": 1.0,
+        "case_count": 15.0,
+        "development_recommendation_relevance": 1.0,
+        "heldout_recommendation_relevance": 1.0,
+        "pass_rate": 1.0,
+        "provenance_completeness": 1.0,
+        "recommendation_relevance": 1.0,
+        "same_topic_shortcut_rate": 0.0,
+        "structural_bridge_correctness": 1.0,
+        "structured_output_validity": 1.0,
+        "transfer_type_accuracy": 1.0,
+        "unsupported_claim_rate": 0.0
+      },
+      "passed": 15,
+      "skipped": 0,
+      "split_counts": {
+        "adversarial": 4,
+        "development": 6,
+        "heldout": 5
+      }
+    },
+    "problem_intelligence": {
+      "baseline_metrics": {
+        "multi_label_precision": 0.0,
+        "multi_label_recall": 0.0,
+        "pattern_precision": 0.3,
+        "pattern_recall": 0.3,
+        "primary_topic_accuracy": 0.6
+      },
+      "capability": "problem_intelligence",
+      "case_count": 30,
+      "case_ids": [
+        "ambiguous_minimum_subarray",
+        "ambiguous_sorted_matrix",
+        "arrays_hash_two_sum",
+        "backtracking_permutations",
+        "binary_search_answer_capacity",
+        "binary_search_basic",
+        "bit_xor_single",
+        "bst_kth_smallest",
+        "dp_digit_count",
+        "dp_house_robber",
+        "dp_interval_burst",
+        "dp_knapsack_partition",
+        "dp_lcs",
+        "dp_lis",
+        "graph_bfs_rotting",
+        "graph_islands",
+        "greedy_jump_game",
+        "hashing_anagram",
+        "interval_merge",
+        "linked_list_cycle",
+        "monotonic_stack_daily_temperatures",
+        "prefix_sum_subarray",
+        "shortest_path_network_delay",
+        "sliding_window_longest_substring",
+        "stack_valid_parentheses",
+        "topological_course_schedule",
+        "tree_path_sum",
+        "trie_word_search",
+        "two_pointers_three_sum",
+        "union_find_redundant"
+      ],
+      "errored": 0,
+      "failed": 0,
+      "metrics": {
+        "multi_label_precision": 0.417,
+        "multi_label_recall": 1.0,
+        "pass_rate": 1.0,
+        "pattern_precision": 1.0,
+        "pattern_recall": 1.0,
+        "primary_topic_accuracy": 1.0,
+        "provenance_completeness": 1.0,
+        "structured_output_validity_rate": 1.0,
+        "unsupported_claim_rate": 0.0
+      },
+      "passed": 30,
+      "skipped": 0,
+      "split_counts": {
+        "development": 30
+      }
+    }
+  },
+  "taxonomy_versions": {
+    "eval_platform": "eval-platform-v1",
+    "failure_taxonomy": "failure-taxonomy-v1"
+  }
+}
