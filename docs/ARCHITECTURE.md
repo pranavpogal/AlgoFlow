@@ -20,7 +20,8 @@ Current truth:
 - FastAPI routes call `MentorService` directly.
 - `MentorService` invokes deterministic Python tools and persistence helpers.
 - ADK agents are defined in `backend/app/agents/adk_agents.py` but are not invoked in the live request path.
-- ChromaDB is written to, but retrieval is not yet a central personalization path.
+- ChromaDB retrieval is used as bounded, same-user advisory memory context in mentor workflows.
+- Mock interviews now persist transcript and rubric scorecard state in `interview_sessions`.
 
 ## Target Architecture Direction
 
@@ -55,14 +56,11 @@ flowchart TD
 
 ## Current Major Gaps
 
-- No production auth/session boundary.
-- No policy gateway.
-- No request/trace IDs.
-- No real ADK runtime invocation.
-- No evidence-based learner model.
-- No evaluation harness.
+- OAuth/OIDC is not integrated yet; production-like mode uses HMAC bearer auth or explicit trusted-header auth.
+- ADK remains a narrow coordinator route, not a broad all-agent runtime.
+- Mock interviews are deterministic and stateful, not live Gemini interviewer sessions.
 - No secure code execution service.
-- No cloud-ready database/vector configuration.
+- No Alembic migration files or cloud deployment pipeline yet.
 
 ## Production Evolution
 

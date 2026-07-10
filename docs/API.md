@@ -15,7 +15,7 @@ Base path: `/api/v1`
 - `POST /recommendations`: learner-scoped structural transfer recommendations with confidence, evidence, and fallback metadata.
 - `POST /pattern-transfer`: deterministic Pattern Transfer Skill with transfer taxonomy, structural bridge explanations, and learner-evidence grounding.
 - `GET /analytics/{user_id}`: readiness, mastery, mistakes, and velocity derived from current memory and learning-event evidence.
-- `POST /mock-interview/turn`: keyword-driven interviewer response.
+- `POST /mock-interview/turn`: stateful deterministic mock-interview workflow with transcript persistence, persona style, rubric scorecard, stage tracking, and memory-aware feedback.
 
 ## Current Identity Boundary
 
