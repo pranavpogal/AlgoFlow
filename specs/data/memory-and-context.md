@@ -1,8 +1,8 @@
 # Memory and Context Engineering Specification
 
-Status: Draft
+Status: Partially Implemented
 Owner: AlgoFlow
-Phase: 1
+Phase: Memory + RAG Personalization
 
 ## Purpose
 
@@ -11,6 +11,19 @@ Define memory semantics and safe context construction for personalized AI mentor
 ## Motivation
 
 Current vector writes are useful but insufficient. Memory is not a vector database; it requires write policy, retrieval policy, provenance, privacy, and context budgeting.
+
+## Current Runtime Scope
+
+Implemented narrow RAG personalization slice:
+
+- `backend/app/memory/context.py` builds same-user scoped memory context.
+- `backend/app/memory/policy.py` enforces a purpose-bound same-user memory read policy.
+- `VectorMemory.search` returns stable memory IDs when available.
+- `MemoryRetrieved` learning events record retrieval purpose, count, provenance, and limitations.
+- `MemoryRetrieved` is passive and does not increase learner mastery/readiness evidence.
+- Response schemas expose `memory_context` for hints, code review, study plans, recommendations, pattern transfer, and mock interviews.
+
+Current retrieval is advisory. It may influence wording and personalization notes, but it is not treated as correctness proof, mastery proof, or policy authority.
 
 ## Memory Types
 
@@ -31,6 +44,8 @@ Memory writes must specify:
 - retention category
 - sensitivity level
 
+Current implementation note: vector writes remain existing local memory notes from deterministic workflows. Full typed memory write policy is still future work.
+
 ## Retrieval Policy
 
 Retrieval must specify:
@@ -42,6 +57,15 @@ Retrieval must specify:
 - ranking strategy
 - recency and confidence weighting
 - provenance returned with each hit
+
+Current implementation:
+
+- same-user scope is enforced by `evaluate_memory_access`
+- purpose is required
+- retrieval limit is bounded to a small default
+- snippets are length-bounded
+- each returned snippet includes `vector_memory.search` provenance
+- cross-user retrieval is denied before vector search
 
 ## Context Builder
 
@@ -66,6 +90,8 @@ Outputs:
 - compact evidence summaries
 - provenance references
 - budget metadata
+
+Current implementation note: the runtime context builder returns normalized snippets and provenance for service-layer workflows. It does not yet build model prompts or token-budgeted Gemini contexts.
 
 ## Security
 
@@ -116,3 +142,9 @@ And records omitted categories in metadata
 - Runtime decisions can cite memory provenance.
 - Retrieval is scoped by authenticated user.
 - Context separates trusted and untrusted content.
+
+## Implemented Acceptance Evidence
+
+- `backend/tests/test_memory_context.py` verifies same-user retrieval, cross-user denial, provenance, and hint endpoint personalization.
+- Full accepted deterministic baseline remains unchanged after adding optional memory context fields.
+- Retrieved memories are surfaced in response `memory_context` and learning-event evidence.
