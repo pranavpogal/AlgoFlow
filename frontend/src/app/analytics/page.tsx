@@ -2,7 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { PageShell } from "../../components/PageShell";
-import { apiGet } from "../../lib/api";
+import { ScoreBar } from "../../components/ScoreBar";
+import { StatusCallout } from "../../components/StatusCallout";
+import { apiErrorMessage, apiGet } from "../../lib/api";
 
 type Analytics = {
   readiness_score: number;
@@ -25,7 +27,8 @@ type Analytics = {
 
 export default function Analytics() {
   const [data, setData] = useState<Analytics | null>(null);
-  useEffect(() => { apiGet<Analytics>("/analytics/demo-user").then(setData).catch(() => undefined); }, []);
+  const [error, setError] = useState<string | null>(null);
+  useEffect(() => { apiGet<Analytics>("/analytics/demo-user").then(setData).catch((err) => setError(apiErrorMessage(err))); }, []);
 
   return (
     <PageShell>
@@ -33,14 +36,15 @@ export default function Analytics() {
         <p className="kicker">Learning analytics agent</p>
         <h2>See the shape of your preparation.</h2>
         {!data && <p>Loading analytics from memory...</p>}
+        {error && <StatusCallout title="Analytics unavailable" tone="danger">{error}. Make sure the backend is running on http://localhost:8000.</StatusCallout>}
         {data && <>
           <div className="metric">{data.readiness_score}</div>
           <p>Interview readiness score · {data.confidence} confidence · {data.evidence_count} evidence signals</p>
-          <div>
-            <span className="tag">Mastery: {String(data.readiness_components.mastery ?? 0)}</span>
-            <span className="tag">Consistency: {String(data.readiness_components.consistency ?? 0)}</span>
-            <span className="tag">Interview: {String(data.readiness_components.interview ?? 0)}</span>
-            <span className="tag">Mistake penalty: {String(data.readiness_components.mistake_penalty ?? 0)}</span>
+          <div className="grid two" style={{ marginTop: 20 }}>
+            <ScoreBar label="Mastery" value={Number(data.readiness_components.mastery ?? 0)} />
+            <ScoreBar label="Consistency" value={Number(data.readiness_components.consistency ?? 0)} />
+            <ScoreBar label="Interview" value={Number(data.readiness_components.interview ?? 0)} />
+            <ScoreBar label="Mistake penalty" value={Number(data.readiness_components.mistake_penalty ?? 0)} />
           </div>
           <div>{data.strongest_topics.map((topic) => <span className="tag" key={topic}>Strong: {topic}</span>)}</div>
           <div>{data.weakest_topics.map((topic) => <span className="tag" key={topic}>Weak: {topic}</span>)}</div>

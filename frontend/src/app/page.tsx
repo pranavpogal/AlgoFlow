@@ -10,29 +10,32 @@ export default function Home() {
           <p className="kicker">Multi-agent interview mentor</p>
           <h1>Practice patterns, not memorized answers.</h1>
           <p>
-            AlgoFlow uses specialized Google ADK agents for topic detection, progressive hints,
-            code review, mistake tracking, mock interviews, analytics, and long-term learning memory.
+            AlgoFlow combines governed Google ADK routing, deterministic mentoring workflows,
+            memory retrieval, and evidence-backed analytics to coach interview preparation without
+            collapsing into a solution generator.
           </p>
           <div className="actions">
             <Link className="btn" href="/problem-analysis">Analyze a problem</Link>
             <Link className="btn secondary" href="/mock-interview">Start a mock interview</Link>
+            <Link className="btn secondary" href="/trajectory">Inspect trajectory</Link>
           </div>
         </div>
         <div className="panel">
-          <p className="kicker">Coordinator agent</p>
-          <h2>One mentor brain, ten specialist agents.</h2>
+          <p className="kicker">Governed runtime</p>
+          <h2>Agents where justified. Workflows where safer.</h2>
           <p>
-            The coordinator delegates intent to narrow agents, then memory and retrieval personalize the next move.
-            The result feels less like a solver and more like a patient senior engineer sitting beside you.
+            The coordinator captures routing trajectory, policy-gated tool calls, and deterministic fallbacks.
+            Skills handle hinting, code review, problem intelligence, transfer, analytics, and mock interviews
+            with structured outputs.
           </p>
-          <span className="tag">Topic Agent</span><span className="tag">Hint Agent</span><span className="tag">Review Agent</span>
-          <span className="tag">Planner Agent</span><span className="tag">Memory Agent</span><span className="tag">Mock Interview Agent</span>
+          <span className="tag">ADK Route</span><span className="tag">Tool Gateway</span><span className="tag">Semantic Policy</span>
+          <span className="tag">RAG Memory</span><span className="tag">Skill Workflows</span><span className="tag">Eval Gates</span>
         </div>
       </section>
       <section className="grid">
-        <MetricCard label="Readiness" value="72" note="Composite score from mastery, consistency, and mistakes." />
-        <MetricCard label="Agents" value="10" note="Specialized workers orchestrated by a root coordinator." />
-        <MetricCard label="Memory" value="RAG" note="Structured profile plus vector retrieval for personalization." />
+        <MetricCard label="Runtime" value="ADK" note="Narrow coordinator slice with trajectory capture and deterministic fallback." />
+        <MetricCard label="Evaluation" value="66/66" note="Accepted deterministic baseline stayed green in the latest phase." />
+        <MetricCard label="Memory" value="RAG" note="Same-user retrieval and structured learner evidence personalize responses." />
       </section>
     </PageShell>
   );

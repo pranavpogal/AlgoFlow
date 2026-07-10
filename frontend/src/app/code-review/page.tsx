@@ -2,11 +2,25 @@
 
 import type { FormEvent } from "react";
 import { useState } from "react";
+import { JsonDisclosure } from "../../components/JsonDisclosure";
 import { PageShell } from "../../components/PageShell";
-import { apiPost } from "../../lib/api";
+import { StatusCallout } from "../../components/StatusCallout";
+import { apiErrorMessage, apiPost } from "../../lib/api";
+
+type CodeReviewResponse = {
+  correctness: string;
+  time_complexity: string;
+  space_complexity: string;
+  edge_cases: string[];
+  optimization_opportunities: string[];
+  readability_feedback: string[];
+  suspected_mistakes: string[];
+  senior_engineer_summary: string;
+  unsupported_claims: string[];
+};
 
 export default function CodeReview() {
-  const [result, setResult] = useState<object | null>(null);
+  const [result, setResult] = useState<CodeReviewResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -16,7 +30,7 @@ export default function CodeReview() {
     setError(null);
     const formData = new FormData(event.currentTarget);
     try {
-      setResult(await apiPost("/code-review", {
+      setResult(await apiPost<CodeReviewResponse>("/code-review", {
         user_id: "demo-user",
         title: String(formData.get("title")),
         language: String(formData.get("language")),
@@ -24,7 +38,7 @@ export default function CodeReview() {
         code: String(formData.get("code"))
       }));
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to review the solution.");
+      setError(apiErrorMessage(err));
     } finally {
       setLoading(false);
     }
@@ -42,9 +56,41 @@ export default function CodeReview() {
           <textarea className="textarea" name="code" defaultValue={"def rob(nums):\n    dp = [0] * len(nums)\n    for i in range(len(nums)):\n        dp[i] = max(dp[i-1], nums[i] + dp[i-2])\n    return dp[-1]"} />
           <button className="btn" disabled={loading}>{loading ? "Reviewing..." : "Review solution"}</button>
         </form>
-        {error && <div className="result">Error: {error}. Make sure the backend is running on http://localhost:8000.</div>}
-        {result && <pre className="result">{JSON.stringify(result, null, 2)}</pre>}
+        {error && <StatusCallout title="Review unavailable" tone="danger">{error}. Make sure the backend is running on http://localhost:8000.</StatusCallout>}
       </section>
+      {result && <section className="grid">
+        <article className="card">
+          <p className="kicker">Correctness</p>
+          <h3>{result.correctness}</h3>
+          <p>{result.senior_engineer_summary}</p>
+        </article>
+        <article className="card">
+          <p className="kicker">Complexity</p>
+          <h3>{result.time_complexity}</h3>
+          <p>Space: {result.space_complexity}</p>
+        </article>
+        <article className="card">
+          <p className="kicker">Mistake signals</p>
+          {result.suspected_mistakes.length === 0 && <p>No recurring mistake signal was detected.</p>}
+          {result.suspected_mistakes.map((item) => <span className="tag red" key={item}>{item}</span>)}
+        </article>
+      </section>}
+      {result && <section className="grid two">
+        <article className="card">
+          <p className="kicker">Edge cases</p>
+          {result.edge_cases.map((item) => <p key={item}>{item}</p>)}
+        </article>
+        <article className="card">
+          <p className="kicker">Optimization</p>
+          {result.optimization_opportunities.map((item) => <p key={item}>{item}</p>)}
+        </article>
+      </section>}
+      {result && <section className="page panel" style={{ marginTop: 22 }}>
+        <p className="kicker">Evidence boundary</p>
+        <h2>Review without executing learner code.</h2>
+        {result.unsupported_claims.map((item) => <p key={item}>{item}</p>)}
+        <JsonDisclosure title="Structured review response" data={result} />
+      </section>}
     </PageShell>
   );
 }

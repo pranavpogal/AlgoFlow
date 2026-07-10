@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { MetricCard } from "../../components/MetricCard";
 import { PageShell } from "../../components/PageShell";
+import { StatusCallout } from "../../components/StatusCallout";
 import { apiGet } from "../../lib/api";
 
 type Analytics = {
@@ -34,7 +35,7 @@ export default function Dashboard() {
         <h2>Your interview prep, with memory.</h2>
         <p>Track readiness, weak topics, current plan, and the next best action recommended by AlgoFlow.</p>
         {!data && !error && <p>Loading learner analytics...</p>}
-        {error && <p>{error} Start the backend on port 8000 to load live learner metrics.</p>}
+        {error && <StatusCallout title="Dashboard running in preview mode" tone="warning">{error} Start the backend on port 8000 to load live learner metrics.</StatusCallout>}
       </section>
       <section className="grid">
         <MetricCard

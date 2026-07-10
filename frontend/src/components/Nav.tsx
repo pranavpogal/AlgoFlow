@@ -9,6 +9,7 @@ const links: Array<[string, Route]> = [
   ["Interview", "/mock-interview"],
   ["Planner", "/study-planner"],
   ["Analytics", "/analytics"],
+  ["Trace", "/trajectory"],
   ["Profile", "/profile"]
 ];
 
