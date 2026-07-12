@@ -29,6 +29,8 @@ class TopicAnalysis(BaseModel):
     provenance: list[str] = Field(default_factory=list)
     unsupported_claims: list[str] = Field(default_factory=list)
     taxonomy_version: str | None = None
+    classification_source: str = "deterministic"
+    classification_adjudication: dict[str, Any] = Field(default_factory=dict)
 
 
 class HintRequest(ProblemInput):

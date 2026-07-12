@@ -46,6 +46,8 @@ from app.runtime.trajectory import Trajectory, TrajectoryEventType
 from app.skills.code_review.workflow import CodeReviewContext, review_code_workflow
 from app.skills.mock_interview.workflow import InterviewContext, conduct_interview_turn
 from app.skills.pattern_transfer.workflow import PatternTransferContext, generate_pattern_transfer
+from app.skills.problem_intelligence.gemini_adjudicator import adjudicate_classification
+from app.skills.problem_intelligence.workflow import ProblemClassificationContext, classify_problem
 from app.skills.progressive_hinting.workflow import HintContext, detect_intent, generate_progressive_hint
 from app.tools.learning_tools import build_weekly_plan
 from app.tools.problem_intelligence import detect_problem_pattern, recommend_related_problems
@@ -514,13 +516,44 @@ class MentorService:
     async def analyze_problem(
         self, session: AsyncSession, payload: ProblemInput, user_id: str
     ) -> TopicAnalysis:
-        detected = detect_problem_pattern(
-            payload.title,
-            payload.description,
-            payload.problem_number,
-            use_canonical_title_catalog=True,
+        deterministic = classify_problem(
+            ProblemClassificationContext(
+                title=payload.title,
+                description=payload.description,
+                problem_number=payload.problem_number,
+                url=payload.url,
+                use_canonical_title_catalog=True,
+            )
         )
+        adjudication = await adjudicate_classification(payload=payload, deterministic=deterministic)
+        detected = adjudication.gemini or adjudication.deterministic
         analysis = self._topic_analysis_from_detected(payload, detected)
+        analysis.classification_source = adjudication.source
+        analysis.classification_adjudication = {
+            "source": adjudication.source,
+            "risk": {
+                "should_call_gemini": adjudication.risk.should_call_gemini,
+                "reasons": adjudication.risk.reasons,
+                "risk_score": adjudication.risk.risk_score,
+            },
+            "fallback_reason": adjudication.fallback_reason,
+            "deterministic": {
+                "difficulty": adjudication.deterministic.get("difficulty"),
+                "primary_topic": adjudication.deterministic.get("primary_topic"),
+                "primary_pattern": adjudication.deterministic.get("primary_pattern"),
+                "confidence": adjudication.deterministic.get("confidence"),
+                "provenance": adjudication.deterministic.get("provenance", []),
+            },
+            "gemini": {
+                "difficulty": detected.get("difficulty"),
+                "primary_topic": detected.get("primary_topic"),
+                "primary_pattern": detected.get("primary_pattern"),
+                "confidence": detected.get("confidence"),
+                "provenance": detected.get("provenance", []),
+            }
+            if adjudication.source == "gemini"
+            else None,
+        }
         await self._persist_problem_analysis(session, payload, user_id, analysis)
         return analysis
 
@@ -575,6 +608,8 @@ class MentorService:
                 "confidence": analysis.confidence,
                 "provenance": analysis.provenance,
                 "taxonomy_version": analysis.taxonomy_version,
+                "classification_source": analysis.classification_source,
+                "classification_adjudication": analysis.classification_adjudication,
                 "classification_only": True,
                 "mastery_evidence": False,
             },
