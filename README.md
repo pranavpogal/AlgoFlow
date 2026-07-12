@@ -96,6 +96,8 @@ http://localhost:3000
 ```bash
 GOOGLE_API_KEY=
 GEMINI_MODEL=gemini-2.5-flash
+ENABLE_GEMINI_CLASSIFICATION=false
+GEMINI_CLASSIFICATION_TIMEOUT_SECONDS=8
 ENABLE_LIVE_ADK=false
 LIVE_ADK_TIMEOUT_SECONDS=3
 LIVE_ADK_MAX_EVENTS=20
@@ -108,7 +110,9 @@ TRUSTED_HEADER_AUTH_ENABLED=false
 NEXT_PUBLIC_API_BASE=http://localhost:8000/api/v1
 ```
 
-`ENABLE_LIVE_ADK=false` is the safe default. To opt into the narrow live ADK/Gemini coordinator route, set `ENABLE_LIVE_ADK=true` and provide `GOOGLE_API_KEY`. The ADK agent still receives no direct tools; post-routing tool execution remains policy-gated through the Tool Gateway.
+`ENABLE_GEMINI_CLASSIFICATION=false` is the safe default. To opt into Gemini-assisted problem classification for risky or ambiguous Analyze requests, set `ENABLE_GEMINI_CLASSIFICATION=true` and provide `GOOGLE_API_KEY`. Deterministic classification still runs first and remains the fallback if Gemini is disabled, unavailable, times out, or returns invalid structured JSON.
+
+`ENABLE_LIVE_ADK=false` is also the safe default. To opt into the narrow live ADK/Gemini coordinator route, set `ENABLE_LIVE_ADK=true` and provide `GOOGLE_API_KEY`. The ADK agent still receives no direct tools; post-routing tool execution remains policy-gated through the Tool Gateway.
 
 Local mode can run without auth headers and resolves to `demo-user`. Production-like mode requires `DATABASE_URL=postgresql+asyncpg://...`, `AUTO_CREATE_DB_SCHEMA=false`, and either HMAC bearer auth with `AUTH_TOKEN_SECRET` or explicitly enabled trusted-header auth behind an authenticated gateway.
 
