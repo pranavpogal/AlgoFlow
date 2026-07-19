@@ -98,6 +98,8 @@ GOOGLE_API_KEY=
 GEMINI_MODEL=gemini-2.5-flash
 ENABLE_GEMINI_CLASSIFICATION=false
 GEMINI_CLASSIFICATION_TIMEOUT_SECONDS=8
+ENABLE_GEMINI_HINTS=false
+GEMINI_HINT_TIMEOUT_SECONDS=8
 ENABLE_LIVE_ADK=false
 LIVE_ADK_TIMEOUT_SECONDS=3
 LIVE_ADK_MAX_EVENTS=20
@@ -111,6 +113,8 @@ NEXT_PUBLIC_API_BASE=http://localhost:8000/api/v1
 ```
 
 `ENABLE_GEMINI_CLASSIFICATION=false` is the safe default. To opt into Gemini-assisted problem classification for risky or ambiguous Analyze requests, set `ENABLE_GEMINI_CLASSIFICATION=true` and provide `GOOGLE_API_KEY`. Deterministic classification still runs first and remains the fallback if Gemini is disabled, unavailable, times out, or returns invalid structured JSON.
+
+`ENABLE_GEMINI_HINTS=false` is the safe default. To opt into Gemini-refined progressive hints for risky or complex hint requests, set `ENABLE_GEMINI_HINTS=true` and provide `GOOGLE_API_KEY`. Deterministic hint level selection and solution-leakage guardrails still run first, and Gemini output is rejected if it appears to reveal a solution when the user has not requested one.
 
 `ENABLE_LIVE_ADK=false` is also the safe default. To opt into the narrow live ADK/Gemini coordinator route, set `ENABLE_LIVE_ADK=true` and provide `GOOGLE_API_KEY`. The ADK agent still receives no direct tools; post-routing tool execution remains policy-gated through the Tool Gateway.
 
