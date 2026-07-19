@@ -48,6 +48,7 @@ from app.skills.mock_interview.workflow import InterviewContext, conduct_intervi
 from app.skills.pattern_transfer.workflow import PatternTransferContext, generate_pattern_transfer
 from app.skills.problem_intelligence.gemini_adjudicator import adjudicate_classification
 from app.skills.problem_intelligence.workflow import ProblemClassificationContext, classify_problem
+from app.skills.progressive_hinting.gemini_adjudicator import adjudicate_hint
 from app.skills.progressive_hinting.workflow import HintContext, detect_intent, generate_progressive_hint
 from app.tools.learning_tools import build_weekly_plan
 from app.tools.problem_intelligence import detect_problem_pattern, recommend_related_problems
@@ -658,7 +659,12 @@ class MentorService:
     async def next_hint(self, session: AsyncSession, payload: HintRequest, user_id: str) -> HintResponse:
         memory = await user_memory_snapshot(session, user_id)
         learner_state = derive_learner_state(memory)
-        detected = detect_problem_pattern(payload.title, payload.description)
+        detected = detect_problem_pattern(
+            payload.title,
+            payload.description,
+            payload.problem_number,
+            use_canonical_title_catalog=True,
+        )
         pattern = detected["pattern"]
         memory_context = await retrieve_memory_context(
             session,
@@ -688,25 +694,43 @@ class MentorService:
             },
             metadata={"source_route": "hints.next"},
         )
-        hint_result = generate_progressive_hint(
-            HintContext(
-                title=payload.title,
-                description=payload.description,
-                pattern=pattern,
-                difficulty=detected.get("difficulty", "Unknown"),
-                current_hint_level=payload.current_hint_level,
-                user_attempt=payload.user_attempt,
-                reveal_solution=payload.reveal_solution,
-                learner_state=learner_state,
-                previous_hint_events=previous_hints,
-            )
+        hint_context = HintContext(
+            title=payload.title,
+            description=payload.description,
+            pattern=pattern,
+            difficulty=detected.get("difficulty", "Unknown"),
+            current_hint_level=payload.current_hint_level,
+            user_attempt=payload.user_attempt,
+            reveal_solution=payload.reveal_solution,
+            learner_state=learner_state,
+            previous_hint_events=previous_hints,
         )
+        hint_result = generate_progressive_hint(hint_context)
+        hint_adjudication = await adjudicate_hint(
+            payload=payload,
+            context=hint_context,
+            deterministic=hint_result,
+        )
+        hint_text = hint_adjudication.gemini_hint or hint_result.hint
+        mentor_note_text = hint_adjudication.gemini_mentor_note or hint_result.mentor_note
         response = HintResponse(
             level=hint_result.hint_level,
-            hint=hint_result.hint,
+            hint=hint_text,
             reveals_solution=hint_result.reveals_solution,
-            mentor_note=self._with_memory_note(hint_result.mentor_note, memory_context),
+            mentor_note=self._with_memory_note(mentor_note_text, memory_context),
             memory_context=self._memory_context_payload(memory_context),
+            hint_source=hint_adjudication.source,
+            hint_adjudication={
+                "source": hint_adjudication.source,
+                "risk": {
+                    "should_call_gemini": hint_adjudication.risk.should_call_gemini,
+                    "reasons": hint_adjudication.risk.reasons,
+                    "risk_score": hint_adjudication.risk.risk_score,
+                },
+                "fallback_reason": hint_adjudication.fallback_reason,
+                "deterministic_hint": hint_adjudication.deterministic_hint,
+                "gemini_used": hint_adjudication.source == "gemini",
+            },
         )
         await record_learning_event(
             session,
@@ -728,6 +752,8 @@ class MentorService:
                 "next_escalation_condition": hint_result.next_escalation_condition,
                 "memory_context_applied": memory_context.applied,
                 "memory_provenance": memory_context.provenance(),
+                "hint_source": response.hint_source,
+                "hint_adjudication": response.hint_adjudication,
             },
             metadata={"source_route": "hints.next"},
         )

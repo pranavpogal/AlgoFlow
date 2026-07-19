@@ -46,6 +46,8 @@ class HintResponse(BaseModel):
     reveals_solution: bool = False
     mentor_note: str
     memory_context: dict[str, Any] = Field(default_factory=dict)
+    hint_source: str = "deterministic"
+    hint_adjudication: dict[str, Any] = Field(default_factory=dict)
 
 
 class CodeReviewRequest(BaseModel):

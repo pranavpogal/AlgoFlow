@@ -18,6 +18,8 @@ class Settings(BaseSettings):
     google_api_key: str | None = None
     enable_gemini_classification: bool = False
     gemini_classification_timeout_seconds: float = 8.0
+    enable_gemini_hints: bool = False
+    gemini_hint_timeout_seconds: float = 8.0
     enable_live_adk: bool = False
     live_adk_timeout_seconds: float = 3.0
     live_adk_max_events: int = 20
