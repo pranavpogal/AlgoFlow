@@ -40,7 +40,7 @@ async def test_gemini_advisory_disabled_uses_deterministic_fallback():
 
 
 @pytest.mark.asyncio
-async def test_gemini_advisory_missing_key_falls_back_without_invoker():
+async def test_gemini_advisory_missing_credentials_falls_back_without_invoker():
     advisory = await maybe_generate_gemini_advisory(
         task="study_plan_advisory",
         enabled=True,
@@ -50,7 +50,7 @@ async def test_gemini_advisory_missing_key_falls_back_without_invoker():
     )
 
     assert advisory["used"] is False
-    assert advisory["fallback_reason"] == "missing_google_api_key"
+    assert advisory["fallback_reason"] == "missing_gemini_credentials"
 
 
 @pytest.mark.asyncio

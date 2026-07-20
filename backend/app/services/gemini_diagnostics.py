@@ -5,7 +5,11 @@ import time
 from typing import Any
 
 from app.core.config import Settings, get_settings
-from app.skills.problem_intelligence.gemini_adjudicator import _sanitize_exception_message
+from app.services.gemini_client import (
+    build_gemini_client,
+    gemini_auth_configured,
+    sanitize_gemini_exception_message,
+)
 
 
 async def check_gemini_connection(settings: Settings | None = None) -> dict[str, Any]:
@@ -13,7 +17,11 @@ async def check_gemini_connection(settings: Settings | None = None) -> dict[str,
     started = time.perf_counter()
     base = {
         "key_configured": bool(settings.google_api_key),
+        "auth_configured": gemini_auth_configured(settings),
+        "provider": settings.gemini_provider,
         "model": settings.gemini_model,
+        "google_cloud_project_configured": bool(settings.google_cloud_project),
+        "google_cloud_location": settings.google_cloud_location,
         "classification_enabled": settings.enable_gemini_classification,
         "hints_enabled": settings.enable_gemini_hints,
         "code_review_enabled": settings.enable_gemini_code_review,
@@ -27,8 +35,8 @@ async def check_gemini_connection(settings: Settings | None = None) -> dict[str,
         "error": None,
         "latency_ms": None,
     }
-    if not settings.google_api_key:
-        return {**base, "status": "missing_google_api_key"}
+    if not gemini_auth_configured(settings):
+        return {**base, "status": "missing_gemini_credentials"}
 
     try:
         await asyncio.wait_for(
@@ -52,10 +60,9 @@ async def check_gemini_connection(settings: Settings | None = None) -> dict[str,
 
 
 def _probe_gemini_sync(settings: Settings) -> None:
-    from google import genai
     from google.genai import types
 
-    client = genai.Client(api_key=settings.google_api_key)
+    client = build_gemini_client(settings)
     response = client.models.generate_content(
         model=settings.gemini_model,
         contents='Return exactly this JSON: {"ok": true}',
@@ -73,5 +80,5 @@ def _diagnostic_error(exc: Exception) -> dict[str, Any]:
     return {
         "type": type(exc).__name__,
         "status_code": getattr(exc, "status_code", None),
-        "message": _sanitize_exception_message(str(exc)),
+        "message": sanitize_gemini_exception_message(str(exc)),
     }

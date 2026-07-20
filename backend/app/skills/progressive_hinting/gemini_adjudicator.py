@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import asyncio
 import json
-import re
 from dataclasses import dataclass, field
 from typing import Protocol
 
@@ -10,6 +9,11 @@ from pydantic import BaseModel, Field
 
 from app.core.config import Settings, get_settings
 from app.schemas.mentor import HintRequest
+from app.services.gemini_client import (
+    build_gemini_client,
+    gemini_auth_configured,
+    gemini_exception_label,
+)
 from app.skills.progressive_hinting.workflow import HintContext, ProgressiveHintResult
 
 
@@ -63,8 +67,8 @@ class GoogleGenerativeAIHintInvoker:
         deterministic: ProgressiveHintResult,
         risk: HintRiskDecision,
     ) -> GeminiHintResult:
-        if not self.settings.google_api_key:
-            raise RuntimeError("GOOGLE_API_KEY is required for Gemini hints.")
+        if not gemini_auth_configured(self.settings):
+            raise RuntimeError("Gemini credentials are required for hints.")
         async with asyncio.timeout(self.settings.gemini_hint_timeout_seconds):
             return await asyncio.to_thread(self._generate_sync, payload, context, deterministic, risk)
 
@@ -75,10 +79,9 @@ class GoogleGenerativeAIHintInvoker:
         deterministic: ProgressiveHintResult,
         risk: HintRiskDecision,
     ) -> GeminiHintResult:
-        from google import genai
         from google.genai import types
 
-        client = genai.Client(api_key=self.settings.google_api_key)
+        client = build_gemini_client(self.settings)
         response = client.models.generate_content(
             model=self.settings.gemini_model,
             contents=_prompt(payload, context, deterministic, risk),
@@ -155,13 +158,13 @@ async def adjudicate_hint(
             risk,
             fallback_reason="gemini_hints_disabled",
         )
-    if not settings.google_api_key and invoker is None:
+    if not gemini_auth_configured(settings) and invoker is None:
         return HintAdjudication(
             "deterministic",
             deterministic.hint,
             deterministic.mentor_note,
             risk,
-            fallback_reason="missing_google_api_key",
+            fallback_reason="missing_gemini_credentials",
         )
 
     try:
@@ -178,7 +181,7 @@ async def adjudicate_hint(
             deterministic.hint,
             deterministic.mentor_note,
             risk,
-            fallback_reason=f"gemini_hint_failed:{_exception_label(exc)}",
+            fallback_reason=f"gemini_hint_failed:{gemini_exception_label(exc)}",
         )
 
     if _leaks_solution(gemini.hint, reveal_allowed=context.reveal_solution):
@@ -207,23 +210,6 @@ def parse_gemini_hint(raw_text: str) -> GeminiHintResult:
         if text.lower().startswith("json"):
             text = text[4:].strip()
     return GeminiHintResult.model_validate_json(text)
-
-
-def _exception_label(exc: Exception) -> str:
-    status = getattr(exc, "status_code", None)
-    message = _sanitize_exception_message(str(exc))
-    parts = [type(exc).__name__]
-    if status:
-        parts.append(str(status))
-    if message:
-        parts.append(message)
-    return ":".join(parts)
-
-
-def _sanitize_exception_message(message: str) -> str:
-    collapsed = " ".join(message.split())
-    redacted = re.sub(r"AIza[0-9A-Za-z_-]{20,}", "[redacted-api-key]", collapsed)
-    return redacted[:240]
 
 
 def _leaks_solution(text: str, *, reveal_allowed: bool) -> bool:

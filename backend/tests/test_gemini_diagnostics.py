@@ -8,12 +8,36 @@ from app.services.gemini_diagnostics import check_gemini_connection
 
 
 @pytest.mark.asyncio
-async def test_gemini_diagnostics_reports_missing_key_without_probe():
+async def test_gemini_diagnostics_reports_missing_credentials_without_probe():
     result = await check_gemini_connection(Settings(google_api_key=None))
 
     assert result["ok"] is False
-    assert result["status"] == "missing_google_api_key"
+    assert result["status"] == "missing_gemini_credentials"
     assert result["key_configured"] is False
+    assert result["auth_configured"] is False
+
+
+@pytest.mark.asyncio
+async def test_gemini_diagnostics_accepts_vertex_ai_project_credentials(monkeypatch):
+    def fake_probe(settings):
+        assert settings.gemini_provider == "vertex_ai"
+        assert settings.google_cloud_project == "algoflow-demo"
+
+    monkeypatch.setattr(gemini_diagnostics, "_probe_gemini_sync", fake_probe)
+
+    result = await check_gemini_connection(
+        Settings(
+            gemini_provider="vertex_ai",
+            google_cloud_project="algoflow-demo",
+            google_cloud_location="global",
+            google_api_key=None,
+        )
+    )
+
+    assert result["ok"] is True
+    assert result["provider"] == "vertex_ai"
+    assert result["auth_configured"] is True
+    assert result["google_cloud_project_configured"] is True
 
 
 @pytest.mark.asyncio
@@ -37,7 +61,11 @@ async def test_gemini_diagnostics_endpoint_returns_safe_payload(monkeypatch):
     async def fake_check_gemini_connection():
         return {
             "key_configured": True,
+            "auth_configured": True,
+            "provider": "vertex_ai",
             "model": "gemini-2.5-flash",
+            "google_cloud_project_configured": True,
+            "google_cloud_location": "global",
             "classification_enabled": True,
             "hints_enabled": False,
             "ok": False,

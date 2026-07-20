@@ -16,7 +16,10 @@ class Settings(BaseSettings):
     auth_token_secret: str | None = None
     trusted_header_auth_enabled: bool = False
     gemini_model: str = "gemini-2.5-flash"
+    gemini_provider: str = "ai_studio"
     google_api_key: str | None = None
+    google_cloud_project: str | None = None
+    google_cloud_location: str = "global"
     enable_gemini_classification: bool = False
     gemini_classification_timeout_seconds: float = 8.0
     enable_gemini_hints: bool = False
@@ -83,8 +86,14 @@ class Settings(BaseSettings):
         if self.auth_mode not in {"hmac", "trusted_header"}:
             raise RuntimeError("Production-like environments must use auth_mode=hmac or trusted_header.")
 
-        if self.enable_live_adk and not self.google_api_key:
-            raise RuntimeError("ENABLE_LIVE_ADK requires GOOGLE_API_KEY or configured Google credentials.")
+        if self.gemini_provider not in {"ai_studio", "vertex_ai"}:
+            raise RuntimeError("GEMINI_PROVIDER must be ai_studio or vertex_ai.")
+
+        if self.gemini_provider == "vertex_ai" and not self.google_cloud_project:
+            raise RuntimeError("Vertex AI Gemini requires GOOGLE_CLOUD_PROJECT.")
+
+        if self.enable_live_adk and self.gemini_provider == "ai_studio" and not self.google_api_key:
+            raise RuntimeError("ENABLE_LIVE_ADK requires GOOGLE_API_KEY or Vertex AI credentials.")
 
 
 @lru_cache

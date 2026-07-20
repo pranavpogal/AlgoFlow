@@ -13,6 +13,12 @@ services:
         value: sqlite+aiosqlite:////tmp/algoflow.db
       - key: CHROMA_PATH
         value: /tmp/algoflow-chroma
+      - key: GEMINI_PROVIDER
+        value: ai_studio
+      - key: GOOGLE_CLOUD_PROJECT
+        sync: false
+      - key: GOOGLE_CLOUD_LOCATION
+        value: global
       - key: AUTO_CREATE_DB_SCHEMA
         value: true
       - key: ENABLE_GEMINI_CLASSIFICATION

@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import asyncio
 import json
-import re
 from dataclasses import dataclass, field
 from typing import Any, Protocol
 
@@ -10,6 +9,11 @@ from pydantic import BaseModel, Field, field_validator
 
 from app.core.config import Settings, get_settings
 from app.schemas.mentor import ProblemInput
+from app.services.gemini_client import (
+    build_gemini_client,
+    gemini_auth_configured,
+    gemini_exception_label,
+)
 from app.skills.problem_intelligence.workflow import ProblemClassificationResult
 
 
@@ -78,8 +82,8 @@ class GoogleGenerativeAIClassificationInvoker:
         deterministic: ProblemClassificationResult,
         risk: ClassificationRiskDecision,
     ) -> GeminiClassificationResult:
-        if not self.settings.google_api_key:
-            raise RuntimeError("GOOGLE_API_KEY is required for Gemini classification.")
+        if not gemini_auth_configured(self.settings):
+            raise RuntimeError("Gemini credentials are required for classification.")
 
         async with asyncio.timeout(self.settings.gemini_classification_timeout_seconds):
             return await asyncio.to_thread(self._classify_sync, payload, deterministic, risk)
@@ -90,10 +94,9 @@ class GoogleGenerativeAIClassificationInvoker:
         deterministic: ProblemClassificationResult,
         risk: ClassificationRiskDecision,
     ) -> GeminiClassificationResult:
-        from google import genai
         from google.genai import types
 
-        client = genai.Client(api_key=self.settings.google_api_key)
+        client = build_gemini_client(self.settings)
         response = client.models.generate_content(
             model=self.settings.gemini_model,
             contents=_prompt(payload, deterministic, risk),
@@ -193,12 +196,12 @@ async def adjudicate_classification(
             risk,
             fallback_reason="gemini_classification_disabled",
         )
-    if not settings.google_api_key and invoker is None:
+    if not gemini_auth_configured(settings) and invoker is None:
         return ClassificationAdjudication(
             "deterministic",
             deterministic_payload,
             risk,
-            fallback_reason="missing_google_api_key",
+            fallback_reason="missing_gemini_credentials",
         )
 
     try:
@@ -213,7 +216,7 @@ async def adjudicate_classification(
             "deterministic",
             deterministic_payload,
             risk,
-            fallback_reason=f"gemini_classification_failed:{_exception_label(exc)}",
+            fallback_reason=f"gemini_classification_failed:{gemini_exception_label(exc)}",
         )
 
     return ClassificationAdjudication(
@@ -231,23 +234,6 @@ def parse_gemini_classification(raw_text: str) -> GeminiClassificationResult:
         if text.lower().startswith("json"):
             text = text[4:].strip()
     return GeminiClassificationResult.model_validate_json(text)
-
-
-def _exception_label(exc: Exception) -> str:
-    status = getattr(exc, "status_code", None)
-    message = _sanitize_exception_message(str(exc))
-    parts = [type(exc).__name__]
-    if status:
-        parts.append(str(status))
-    if message:
-        parts.append(message)
-    return ":".join(parts)
-
-
-def _sanitize_exception_message(message: str) -> str:
-    collapsed = " ".join(message.split())
-    redacted = re.sub(r"AIza[0-9A-Za-z_-]{20,}", "[redacted-api-key]", collapsed)
-    return redacted[:240]
 
 
 def _gemini_to_legacy_payload(payload: ProblemInput, result: GeminiClassificationResult) -> dict[str, Any]:

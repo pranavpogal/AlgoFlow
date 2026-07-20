@@ -8,7 +8,11 @@ from typing import Any, Protocol
 from pydantic import BaseModel, Field
 
 from app.core.config import Settings, get_settings
-from app.skills.problem_intelligence.gemini_adjudicator import _sanitize_exception_message
+from app.services.gemini_client import (
+    build_gemini_client,
+    gemini_auth_configured,
+    gemini_exception_label,
+)
 
 
 class GeminiAdvisoryResult(BaseModel):
@@ -40,8 +44,8 @@ class GoogleGenAIAdvisoryInvoker:
         context: dict[str, Any],
         deterministic_response: dict[str, Any],
     ) -> GeminiAdvisoryResult:
-        if not self.settings.google_api_key:
-            raise RuntimeError("GOOGLE_API_KEY is required for Gemini advisory generation.")
+        if not gemini_auth_configured(self.settings):
+            raise RuntimeError("Gemini credentials are required for advisory generation.")
         async with asyncio.timeout(self.settings.gemini_advisory_timeout_seconds):
             return await asyncio.to_thread(
                 self._generate_sync,
@@ -56,10 +60,9 @@ class GoogleGenAIAdvisoryInvoker:
         context: dict[str, Any],
         deterministic_response: dict[str, Any],
     ) -> GeminiAdvisoryResult:
-        from google import genai
         from google.genai import types
 
-        client = genai.Client(api_key=self.settings.google_api_key)
+        client = build_gemini_client(self.settings)
         response = client.models.generate_content(
             model=self.settings.gemini_model,
             contents=_prompt(task, context, deterministic_response),
@@ -96,8 +99,8 @@ async def maybe_generate_gemini_advisory(
     }
     if not enabled:
         return {**base, "fallback_reason": "gemini_advisory_disabled"}
-    if not settings.google_api_key and invoker is None:
-        return {**base, "fallback_reason": "missing_google_api_key"}
+    if not gemini_auth_configured(settings) and invoker is None:
+        return {**base, "fallback_reason": "missing_gemini_credentials"}
 
     try:
         selected_invoker = invoker or GoogleGenAIAdvisoryInvoker(settings)
@@ -109,7 +112,7 @@ async def maybe_generate_gemini_advisory(
     except Exception as exc:
         return {
             **base,
-            "fallback_reason": f"gemini_advisory_failed:{_exception_label(exc)}",
+            "fallback_reason": f"gemini_advisory_failed:{gemini_exception_label(exc)}",
             "latency_ms": round((time.perf_counter() - started) * 1000, 2),
         }
 
@@ -133,17 +136,6 @@ def parse_gemini_advisory(raw_text: str) -> GeminiAdvisoryResult:
         if text.lower().startswith("json"):
             text = text[4:].strip()
     return GeminiAdvisoryResult.model_validate_json(text)
-
-
-def _exception_label(exc: Exception) -> str:
-    status = getattr(exc, "status_code", None)
-    message = _sanitize_exception_message(str(exc))
-    parts = [type(exc).__name__]
-    if status:
-        parts.append(str(status))
-    if message:
-        parts.append(message)
-    return ":".join(parts)
 
 
 def _prompt(task: str, context: dict[str, Any], deterministic_response: dict[str, Any]) -> str:
