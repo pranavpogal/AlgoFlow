@@ -74,16 +74,17 @@ class GoogleGenerativeAIHintInvoker:
         deterministic: ProgressiveHintResult,
         risk: HintRiskDecision,
     ) -> GeminiHintResult:
-        import google.generativeai as genai
+        from google import genai
+        from google.genai import types
 
-        genai.configure(api_key=self.settings.google_api_key)
-        model = genai.GenerativeModel(self.settings.gemini_model)
-        response = model.generate_content(
-            _prompt(payload, context, deterministic, risk),
-            generation_config={
-                "temperature": 0.2,
-                "response_mime_type": "application/json",
-            },
+        client = genai.Client(api_key=self.settings.google_api_key)
+        response = client.models.generate_content(
+            model=self.settings.gemini_model,
+            contents=_prompt(payload, context, deterministic, risk),
+            config=types.GenerateContentConfig(
+                temperature=0.2,
+                response_mime_type="application/json",
+            ),
         )
         raw_text = getattr(response, "text", "") or ""
         return parse_gemini_hint(raw_text)
