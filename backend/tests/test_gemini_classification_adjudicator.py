@@ -46,6 +46,15 @@ class FakeGeminiInvoker:
         )
 
 
+class FakeSdkPermissionError(Exception):
+    status_code = 403
+
+
+class FailingGeminiInvoker:
+    async def classify(self, *, payload, deterministic, risk):
+        raise FakeSdkPermissionError("PERMISSION_DENIED")
+
+
 def test_risk_detector_flags_weighted_interval_confusion():
     payload = ProblemInput(
         title="Conference Profit Planner",
@@ -113,6 +122,30 @@ async def test_adjudicator_falls_back_when_gemini_is_disabled():
 
     assert adjudication.source == "deterministic"
     assert adjudication.fallback_reason == "gemini_classification_disabled"
+
+
+@pytest.mark.asyncio
+async def test_adjudicator_falls_back_on_gemini_sdk_permission_error():
+    payload = ProblemInput(
+        title="Conference Profit Planner",
+        description=(
+            "Given jobs with start times, end times, and profits, select non-overlapping jobs "
+            "to maximize total profit."
+        ),
+    )
+    deterministic = classify_problem(
+        ProblemClassificationContext(title=payload.title, description=payload.description)
+    )
+
+    adjudication = await adjudicate_classification(
+        payload=payload,
+        deterministic=deterministic,
+        settings=Settings(enable_gemini_classification=True, google_api_key="test-key"),
+        invoker=FailingGeminiInvoker(),
+    )
+
+    assert adjudication.source == "deterministic"
+    assert adjudication.fallback_reason == "gemini_classification_failed:FakeSdkPermissionError:403"
 
 
 @pytest.mark.asyncio

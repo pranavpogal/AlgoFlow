@@ -5,7 +5,7 @@ import json
 from dataclasses import dataclass, field
 from typing import Any, Protocol
 
-from pydantic import BaseModel, Field, ValidationError, field_validator
+from pydantic import BaseModel, Field, field_validator
 
 from app.core.config import Settings, get_settings
 from app.schemas.mentor import ProblemInput
@@ -207,12 +207,12 @@ async def adjudicate_classification(
             deterministic=deterministic,
             risk=risk,
         )
-    except (asyncio.TimeoutError, ValidationError, json.JSONDecodeError, RuntimeError, ValueError) as exc:
+    except Exception as exc:
         return ClassificationAdjudication(
             "deterministic",
             deterministic_payload,
             risk,
-            fallback_reason=f"gemini_classification_failed:{type(exc).__name__}",
+            fallback_reason=f"gemini_classification_failed:{_exception_label(exc)}",
         )
 
     return ClassificationAdjudication(
@@ -230,6 +230,13 @@ def parse_gemini_classification(raw_text: str) -> GeminiClassificationResult:
         if text.lower().startswith("json"):
             text = text[4:].strip()
     return GeminiClassificationResult.model_validate_json(text)
+
+
+def _exception_label(exc: Exception) -> str:
+    status = getattr(exc, "status_code", None)
+    if status:
+        return f"{type(exc).__name__}:{status}"
+    return type(exc).__name__
 
 
 def _gemini_to_legacy_payload(payload: ProblemInput, result: GeminiClassificationResult) -> dict[str, Any]:

@@ -34,6 +34,15 @@ class FakeHintInvoker:
         )
 
 
+class FakeSdkPermissionError(Exception):
+    status_code = 403
+
+
+class FailingHintInvoker:
+    async def generate(self, *, payload, context, deterministic, risk):
+        raise FakeSdkPermissionError("PERMISSION_DENIED")
+
+
 def _risky_hint_inputs() -> tuple[HintRequest, HintContext]:
     payload = HintRequest(
         title="Conference Profit Planner",
@@ -104,6 +113,23 @@ async def test_gemini_hint_falls_back_when_disabled():
 
     assert adjudication.source == "deterministic"
     assert adjudication.fallback_reason == "gemini_hints_disabled"
+
+
+@pytest.mark.asyncio
+async def test_gemini_hint_falls_back_on_sdk_permission_error():
+    payload, context = _risky_hint_inputs()
+    deterministic = generate_progressive_hint(context)
+
+    adjudication = await adjudicate_hint(
+        payload=payload,
+        context=context,
+        deterministic=deterministic,
+        settings=Settings(enable_gemini_hints=True, google_api_key="test-key"),
+        invoker=FailingHintInvoker(),
+    )
+
+    assert adjudication.source == "deterministic"
+    assert adjudication.fallback_reason == "gemini_hint_failed:FakeSdkPermissionError:403"
 
 
 @pytest.mark.asyncio

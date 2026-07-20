@@ -5,7 +5,7 @@ import json
 from dataclasses import dataclass, field
 from typing import Protocol
 
-from pydantic import BaseModel, Field, ValidationError
+from pydantic import BaseModel, Field
 
 from app.core.config import Settings, get_settings
 from app.schemas.mentor import HintRequest
@@ -171,13 +171,13 @@ async def adjudicate_hint(
             deterministic=deterministic,
             risk=risk,
         )
-    except (asyncio.TimeoutError, ValidationError, json.JSONDecodeError, RuntimeError, ValueError) as exc:
+    except Exception as exc:
         return HintAdjudication(
             "deterministic",
             deterministic.hint,
             deterministic.mentor_note,
             risk,
-            fallback_reason=f"gemini_hint_failed:{type(exc).__name__}",
+            fallback_reason=f"gemini_hint_failed:{_exception_label(exc)}",
         )
 
     if _leaks_solution(gemini.hint, reveal_allowed=context.reveal_solution):
@@ -206,6 +206,13 @@ def parse_gemini_hint(raw_text: str) -> GeminiHintResult:
         if text.lower().startswith("json"):
             text = text[4:].strip()
     return GeminiHintResult.model_validate_json(text)
+
+
+def _exception_label(exc: Exception) -> str:
+    status = getattr(exc, "status_code", None)
+    if status:
+        return f"{type(exc).__name__}:{status}"
+    return type(exc).__name__
 
 
 def _leaks_solution(text: str, *, reveal_allowed: bool) -> bool:
