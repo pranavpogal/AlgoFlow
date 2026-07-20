@@ -143,6 +143,9 @@ In that mode the gateway must set `x-authenticated-user-id`; public clients must
 
 See [specs/deployment/cloud-readiness.md](../specs/deployment/cloud-readiness.md).
 
+For the current Cloud Run + Vertex AI demo path, see
+[Google Cloud Run + Vertex AI Deployment](deployment/google-cloud-run-vertex-ai.md).
+
 Preferred initial target:
 
 - Frontend: Cloud Run or managed frontend platform.
