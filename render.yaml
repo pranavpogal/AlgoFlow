@@ -1,0 +1,52 @@
+services:
+  - type: web
+    name: algoflow-backend
+    runtime: docker
+    plan: free
+    dockerContext: ./backend
+    dockerfilePath: ./backend/Dockerfile
+    healthCheckPath: /api/v1/health
+    envVars:
+      - key: ENVIRONMENT
+        value: demo
+      - key: DATABASE_URL
+        value: sqlite+aiosqlite:////tmp/algoflow.db
+      - key: CHROMA_PATH
+        value: /tmp/algoflow-chroma
+      - key: AUTO_CREATE_DB_SCHEMA
+        value: true
+      - key: ENABLE_GEMINI_CLASSIFICATION
+        value: false
+      - key: ENABLE_GEMINI_HINTS
+        value: false
+      - key: ENABLE_GEMINI_CODE_REVIEW
+        value: false
+      - key: ENABLE_GEMINI_STUDY_PLAN
+        value: false
+      - key: ENABLE_GEMINI_RECOMMENDATIONS
+        value: false
+      - key: ENABLE_GEMINI_PATTERN_TRANSFER
+        value: false
+      - key: ENABLE_GEMINI_MOCK_INTERVIEW
+        value: false
+      - key: ENABLE_GEMINI_ANALYTICS
+        value: false
+      - key: GEMINI_ADVISORY_TIMEOUT_SECONDS
+        value: 8
+      - key: ENABLE_LIVE_ADK
+        value: false
+      - key: GOOGLE_API_KEY
+        sync: false
+      - key: CORS_ALLOWED_ORIGINS
+        sync: false
+
+  - type: web
+    name: algoflow-frontend
+    runtime: docker
+    plan: free
+    dockerContext: ./frontend
+    dockerfilePath: ./frontend/Dockerfile
+    healthCheckPath: /
+    envVars:
+      - key: NEXT_PUBLIC_API_BASE
+        sync: false

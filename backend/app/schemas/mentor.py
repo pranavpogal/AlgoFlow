@@ -95,6 +95,7 @@ class CodeReviewResponse(BaseModel):
     rewrite_allowed: bool = False
     unsupported_claims: list[str] = Field(default_factory=list)
     memory_context: dict[str, Any] = Field(default_factory=dict)
+    gemini_advisory: dict[str, Any] = Field(default_factory=dict)
 
 
 class StudyPlanRequest(BaseModel):
@@ -111,6 +112,7 @@ class StudyPlanResponse(BaseModel):
     checkpoints: list[str]
     personalization_notes: list[str]
     memory_context: dict[str, Any] = Field(default_factory=dict)
+    gemini_advisory: dict[str, Any] = Field(default_factory=dict)
 
 
 class InterviewTurnRequest(BaseModel):
@@ -134,6 +136,7 @@ class InterviewTurnResponse(BaseModel):
     scorecard: dict[str, Any] = Field(default_factory=dict)
     evaluation_summary: str | None = None
     persona_style: str | None = None
+    gemini_advisory: dict[str, Any] = Field(default_factory=dict)
 
 
 class AnalyticsResponse(BaseModel):
@@ -153,6 +156,7 @@ class AnalyticsResponse(BaseModel):
     recommendations: list[str]
     evidence_summary: dict[str, Any] = Field(default_factory=dict)
     limitations: list[str] = Field(default_factory=list)
+    gemini_advisory: dict[str, Any] = Field(default_factory=dict)
 
 
 class RecommendationResponse(BaseModel):
@@ -165,6 +169,7 @@ class RecommendationResponse(BaseModel):
     fallback_reason: str | None = None
     same_topic_shortcut_used: bool = False
     memory_context: dict[str, Any] = Field(default_factory=dict)
+    gemini_advisory: dict[str, Any] = Field(default_factory=dict)
 
 
 class PatternTransferResponse(BaseModel):
@@ -182,6 +187,7 @@ class PatternTransferResponse(BaseModel):
     fallback_reason: str | None = None
     same_topic_shortcut_used: bool = False
     memory_context: dict[str, Any] = Field(default_factory=dict)
+    gemini_advisory: dict[str, Any] = Field(default_factory=dict)
 
 
 class MentorRouteRequest(ProblemInput):

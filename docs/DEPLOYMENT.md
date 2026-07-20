@@ -25,7 +25,94 @@ Current persistence defaults are local SQLite and local ChromaDB path. These are
 - No Secret Manager integration.
 - No Cloud SQL config.
 - No OpenTelemetry/Cloud Trace integration.
-- Frontend Dockerfile runs development server.
+- Cloud-demo storage is intentionally ephemeral unless a managed database/vector store is configured.
+
+## Cloud Demo Deployment
+
+AlgoFlow can be deployed today as a deterministic public demo without Gemini.
+This mode is intended for recruiter demos and portfolio walkthroughs, not for
+production multi-user persistence.
+
+The repository includes a Render-compatible `render.yaml` with two Docker web
+services:
+
+- `algoflow-backend`
+- `algoflow-frontend`
+
+Default demo behavior:
+
+- `ENVIRONMENT=demo`
+- Gemini and live ADK model calls are disabled.
+- Deterministic Skills, workflows, tool policy, trajectory capture, memory
+  summaries, mock interviews, analytics, and frontend pages remain available.
+- SQLite and local Chroma paths are allowed only because this is explicit demo
+  mode.
+- Demo storage is ephemeral on platforms without persistent disks.
+
+After the backend service receives a public URL, configure:
+
+```bash
+NEXT_PUBLIC_API_BASE=https://<backend-service-url>/api/v1
+```
+
+After the frontend service receives a public URL, configure the backend CORS
+allowlist:
+
+```bash
+CORS_ALLOWED_ORIGINS=https://<frontend-service-url>
+```
+
+Then redeploy both services.
+
+Useful smoke checks:
+
+```bash
+curl https://<backend-service-url>/api/v1/health
+curl https://<backend-service-url>/api/v1/diagnostics/gemini
+```
+
+The Gemini diagnostic should report `key_configured: false` or a controlled
+Google-side error unless a working API key is configured. That should not block
+the deterministic demo.
+
+## Optional Gemini Advisory Features
+
+Gemini can be enabled per workflow without removing deterministic fallbacks.
+If Google returns a timeout, quota error, or permission error, AlgoFlow keeps
+serving the deterministic response and records the fallback reason in the
+response's advisory metadata.
+
+```bash
+GOOGLE_API_KEY=<working-ai-studio-key>
+GEMINI_MODEL=gemini-2.5-flash
+ENABLE_GEMINI_CLASSIFICATION=true
+ENABLE_GEMINI_HINTS=true
+ENABLE_GEMINI_CODE_REVIEW=true
+ENABLE_GEMINI_STUDY_PLAN=true
+ENABLE_GEMINI_RECOMMENDATIONS=true
+ENABLE_GEMINI_PATTERN_TRANSFER=true
+ENABLE_GEMINI_MOCK_INTERVIEW=true
+ENABLE_GEMINI_ANALYTICS=true
+GEMINI_ADVISORY_TIMEOUT_SECONDS=8
+```
+
+Gemini is intentionally not used to rewrite audit traces. Trace and policy
+records remain deterministic evidence because they are used for debugging,
+baseline comparison, and safety review.
+
+Recommended demo setting while Google access is unreliable:
+
+```bash
+ENABLE_GEMINI_CLASSIFICATION=true
+ENABLE_GEMINI_HINTS=false
+ENABLE_GEMINI_CODE_REVIEW=false
+ENABLE_GEMINI_STUDY_PLAN=false
+ENABLE_GEMINI_RECOMMENDATIONS=false
+ENABLE_GEMINI_PATTERN_TRANSFER=false
+ENABLE_GEMINI_MOCK_INTERVIEW=false
+ENABLE_GEMINI_ANALYTICS=false
+GEMINI_CLASSIFICATION_TIMEOUT_SECONDS=3
+```
 
 ## Production-Like Backend Configuration
 
@@ -40,6 +127,7 @@ AUTO_CREATE_DB_SCHEMA=false
 CHROMA_PATH=managed-chroma
 AUTH_MODE=hmac
 AUTH_TOKEN_SECRET=<long-random-secret>
+CORS_ALLOWED_ORIGINS=https://<frontend-domain>
 ```
 
 Trusted-header mode is available only for deployments behind a separately authenticated gateway:

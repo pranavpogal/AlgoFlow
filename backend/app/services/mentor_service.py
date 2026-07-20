@@ -24,6 +24,7 @@ from app.memory.repository import (
 from app.memory.learner_state import derive_learner_state
 from app.memory.context import MemoryContext, retrieve_memory_context
 from app.memory.vector_store import vector_memory
+from app.core.config import get_settings
 from app.schemas.mentor import (
     AnalyticsResponse,
     CodeReviewRequest,
@@ -41,6 +42,7 @@ from app.schemas.mentor import (
     StudyPlanResponse,
     TopicAnalysis,
 )
+from app.services.gemini_advisory import maybe_generate_gemini_advisory
 from app.runtime.adk_runtime import CoordinatorToolRequest, MentorRoutingInput, adk_coordinator_runtime
 from app.runtime.trajectory import Trajectory, TrajectoryEventType
 from app.skills.code_review.workflow import CodeReviewContext, review_code_workflow
@@ -845,6 +847,28 @@ class MentorService:
             response.readability_feedback.append(
                 "Personalization note: I considered a small set of your prior memory snippets while framing this review."
             )
+        advisory = await self._attach_gemini_advisory(
+            response,
+            task="code_review_advisory",
+            enabled=get_settings().enable_gemini_code_review,
+            context={
+                "title": payload.title,
+                "language": payload.language,
+                "user_intent": payload.user_intent,
+                "problem_description": self._clip(payload.problem_description or "", 1200),
+                "code_excerpt": self._clip(payload.code, 1800),
+                "memory_applied": memory_context.applied,
+                "memory_provenance": memory_context.provenance(),
+            },
+        )
+        if advisory.get("used"):
+            response.senior_engineer_summary = (
+                f"{response.senior_engineer_summary} Gemini advisory: {advisory['summary']}"
+            )
+            response.optimization_opportunities.extend(advisory.get("suggestions", [])[:2])
+            response.unsupported_claims.append(
+                "Gemini advisory is supplementary review guidance; no submitted code was executed."
+            )
         await self._persist_code_review_response(
             session,
             payload,
@@ -1009,6 +1033,21 @@ class MentorService:
             ],
             memory_context=self._memory_context_payload(memory_context),
         )
+        advisory = await self._attach_gemini_advisory(
+            response,
+            task="study_plan_advisory",
+            enabled=get_settings().enable_gemini_study_plan,
+            context={
+                "target_company": payload.target_company,
+                "days_remaining": payload.days_remaining,
+                "hours_per_week": payload.hours_per_week,
+                "memory_applied": memory_context.applied,
+                "learner_state": memory.get("derived_learner_state", {}),
+            },
+        )
+        if advisory.get("used"):
+            response.personalization_notes.append(f"Gemini advisory: {advisory['summary']}")
+            response.checkpoints.extend(advisory.get("suggestions", [])[:2])
         await record_learning_event(
             session,
             user_id,
@@ -1049,7 +1088,7 @@ class MentorService:
             }
             for item in transfer.recommendations
         ] or recommend_related_problems(detected["pattern"])
-        return RecommendationResponse(
+        response = RecommendationResponse(
             core_pattern=detected.get("primary_pattern") or detected["pattern"],
             related_problems=related,
             difficulty_progression=[item["difficulty"] for item in related],
@@ -1063,6 +1102,20 @@ class MentorService:
             same_topic_shortcut_used=transfer.same_topic_shortcut_used,
             memory_context=self._memory_context_payload(memory_context),
         )
+        advisory = await self._attach_gemini_advisory(
+            response,
+            task="recommendation_advisory",
+            enabled=get_settings().enable_gemini_recommendations,
+            context={
+                "title": payload.title,
+                "detected_pattern": detected,
+                "related_problem_count": len(related),
+                "memory_applied": memory_context.applied,
+            },
+        )
+        if advisory.get("used"):
+            response.explanation = f"{response.explanation} Gemini advisory: {advisory['summary']}"
+        return response
 
     async def pattern_transfer(
         self, session: AsyncSession, payload: ProblemInput, user_id: str
@@ -1087,7 +1140,7 @@ class MentorService:
             }
             for item in transfer.recommendations
         ]
-        return PatternTransferResponse(
+        response = PatternTransferResponse(
             core_idea="Transfer the structural invariant, not the surface topic label.",
             transfer_to=related,
             pattern_evolution=[item.transfer_bridge for item in transfer.recommendations],
@@ -1105,6 +1158,27 @@ class MentorService:
             same_topic_shortcut_used=transfer.same_topic_shortcut_used,
             memory_context=self._memory_context_payload(memory_context),
         )
+        advisory = await self._attach_gemini_advisory(
+            response,
+            task="pattern_transfer_advisory",
+            enabled=get_settings().enable_gemini_pattern_transfer,
+            context={
+                "title": payload.title,
+                "source_pattern": transfer.source_pattern,
+                "recommendation_count": len(transfer.recommendations),
+                "memory_applied": memory_context.applied,
+            },
+        )
+        if advisory.get("used"):
+            response.learning_opportunities.extend(advisory.get("suggestions", [])[:3])
+            response.evidence_hierarchy.append(
+                {
+                    "source": "gemini_advisory",
+                    "claim": advisory["summary"],
+                    "confidence": advisory.get("confidence"),
+                }
+            )
+        return response
 
     async def _pattern_transfer_result(
         self, session: AsyncSession, payload: ProblemInput, user_id: str
@@ -1176,6 +1250,21 @@ class MentorService:
             evidence_summary=learner_state["evidence_summary"],
             limitations=learner_state["limitations"],
         )
+        advisory = await self._attach_gemini_advisory(
+            response,
+            task="analytics_advisory",
+            enabled=get_settings().enable_gemini_analytics,
+            context={
+                "readiness_score": response.readiness_score,
+                "confidence": response.confidence,
+                "evidence_count": response.evidence_count,
+                "weakest_topics": response.weakest_topics,
+                "common_mistakes": response.common_mistakes[:5],
+            },
+        )
+        if advisory.get("used"):
+            response.recommendations.extend(advisory.get("suggestions", [])[:3])
+            response.limitations.extend(advisory.get("cautions", [])[:2])
         await record_learning_event(
             session,
             user_id,
@@ -1254,6 +1343,25 @@ class MentorService:
             evaluation_summary=interview_result.evaluation_summary,
             persona_style=interview_result.persona_style,
         )
+        advisory = await self._attach_gemini_advisory(
+            response,
+            task="mock_interview_advisory",
+            enabled=get_settings().enable_gemini_mock_interview,
+            context={
+                "persona": payload.persona,
+                "problem_title": payload.problem_title or interview.problem_title,
+                "stage": response.stage,
+                "turn_index": response.turn_index,
+                "rubric_scores": response.rubric_scores,
+                "message_excerpt": self._clip(payload.message, 1200),
+                "memory_applied": memory_context.applied,
+            },
+        )
+        if advisory.get("used"):
+            response.feedback.extend(advisory.get("suggestions", [])[:3])
+            response.evaluation_summary = (
+                f"{response.evaluation_summary} Gemini advisory: {advisory['summary']}"
+            )
         await record_learning_event(
             session,
             user_id,
@@ -1275,6 +1383,28 @@ class MentorService:
             metadata={"source_route": "mock-interview.turn"},
         )
         return response
+
+    async def _attach_gemini_advisory(
+        self,
+        response: Any,
+        *,
+        task: str,
+        enabled: bool,
+        context: dict[str, Any],
+    ) -> dict[str, Any]:
+        advisory = await maybe_generate_gemini_advisory(
+            task=task,
+            enabled=enabled,
+            context=context,
+            deterministic_response=response.model_dump(),
+        )
+        response.gemini_advisory = advisory
+        return advisory
+
+    def _clip(self, text: str, limit: int) -> str:
+        if len(text) <= limit:
+            return text
+        return f"{text[:limit]}..."
 
     def _memory_context_payload(self, memory_context: MemoryContext) -> dict[str, Any]:
         return {
