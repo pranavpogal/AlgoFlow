@@ -1,0 +1,13 @@
+substitutions:
+  _IMAGE: us-central1-docker.pkg.dev/demo/algoflow/backend:manual
+
+steps:
+  - name: gcr.io/cloud-builders/docker
+    args:
+      - build
+      - -t
+      - ${_IMAGE}
+      - ./backend
+
+images:
+  - ${_IMAGE}

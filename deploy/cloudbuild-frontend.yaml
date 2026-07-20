@@ -1,0 +1,16 @@
+substitutions:
+  _IMAGE: us-central1-docker.pkg.dev/demo/algoflow/frontend:manual
+  _NEXT_PUBLIC_API_BASE: http://localhost:8000/api/v1
+
+steps:
+  - name: gcr.io/cloud-builders/docker
+    args:
+      - build
+      - --build-arg
+      - NEXT_PUBLIC_API_BASE=${_NEXT_PUBLIC_API_BASE}
+      - -t
+      - ${_IMAGE}
+      - ./frontend
+
+images:
+  - ${_IMAGE}
