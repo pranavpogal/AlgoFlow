@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import re
 from dataclasses import dataclass, field
 from typing import Any, Protocol
 
@@ -234,9 +235,19 @@ def parse_gemini_classification(raw_text: str) -> GeminiClassificationResult:
 
 def _exception_label(exc: Exception) -> str:
     status = getattr(exc, "status_code", None)
+    message = _sanitize_exception_message(str(exc))
+    parts = [type(exc).__name__]
     if status:
-        return f"{type(exc).__name__}:{status}"
-    return type(exc).__name__
+        parts.append(str(status))
+    if message:
+        parts.append(message)
+    return ":".join(parts)
+
+
+def _sanitize_exception_message(message: str) -> str:
+    collapsed = " ".join(message.split())
+    redacted = re.sub(r"AIza[0-9A-Za-z_-]{20,}", "[redacted-api-key]", collapsed)
+    return redacted[:240]
 
 
 def _gemini_to_legacy_payload(payload: ProblemInput, result: GeminiClassificationResult) -> dict[str, Any]:

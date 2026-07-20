@@ -145,7 +145,9 @@ async def test_adjudicator_falls_back_on_gemini_sdk_permission_error():
     )
 
     assert adjudication.source == "deterministic"
-    assert adjudication.fallback_reason == "gemini_classification_failed:FakeSdkPermissionError:403"
+    assert adjudication.fallback_reason == (
+        "gemini_classification_failed:FakeSdkPermissionError:403:PERMISSION_DENIED"
+    )
 
 
 @pytest.mark.asyncio
