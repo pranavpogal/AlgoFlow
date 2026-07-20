@@ -23,6 +23,7 @@ from app.schemas.mentor import (
     StudyPlanResponse,
     TopicAnalysis,
 )
+from app.services.gemini_diagnostics import check_gemini_connection
 from app.services.mentor_service import mentor_service
 
 router = APIRouter()
@@ -31,6 +32,12 @@ router = APIRouter()
 @router.get("/health")
 async def health() -> dict[str, str]:
     return {"status": "ok", "service": "algoflow"}
+
+
+@router.get("/diagnostics/gemini")
+async def gemini_diagnostics(principal: Principal = Depends(get_principal)) -> dict:
+    _ = principal
+    return await check_gemini_connection()
 
 
 @router.post("/mentor/route", response_model=MentorRouteResponse)
