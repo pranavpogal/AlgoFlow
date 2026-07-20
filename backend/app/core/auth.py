@@ -22,11 +22,11 @@ async def get_principal(
 ) -> Principal:
     """Resolve the request user from trusted runtime context.
 
-    Local development permits a demo principal. Production-like environments must
-    supply an authenticated user header until a real auth provider is wired in.
+    Local and explicit demo deployments permit a demo principal. Production-like
+    environments must supply authenticated identity.
     """
     settings = get_settings()
-    if settings.is_local:
+    if settings.is_local or settings.is_demo:
         return Principal(user_id=x_authenticated_user_id or x_user_id or "demo-user", auth_mode="local-demo")
 
     if settings.auth_mode == "trusted_header" and settings.trusted_header_auth_enabled:

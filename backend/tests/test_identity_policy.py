@@ -72,6 +72,23 @@ async def test_production_like_auth_requires_bearer_token(monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_demo_auth_uses_demo_principal_without_bearer_token(monkeypatch):
+    monkeypatch.setenv("ENVIRONMENT", "demo")
+    get_settings.cache_clear()
+    try:
+        principal = await get_principal(
+            authorization=None,
+            x_authenticated_user_id=None,
+            x_user_id=None,
+        )
+    finally:
+        get_settings.cache_clear()
+
+    assert principal.user_id == "demo-user"
+    assert principal.auth_mode == "local-demo"
+
+
+@pytest.mark.asyncio
 async def test_production_like_auth_accepts_valid_hmac_bearer_token(monkeypatch):
     secret = "test-secret-value-that-is-long-enough"
     token = create_auth_token("principal-user", secret, ttl_seconds=60)
@@ -133,6 +150,27 @@ def test_production_like_config_rejects_sqlite():
 
     with pytest.raises(RuntimeError, match="SQLite"):
         settings.validate_runtime_config()
+
+
+def test_demo_config_allows_ephemeral_demo_storage():
+    settings = Settings(
+        environment="demo",
+        database_url="sqlite+aiosqlite:////tmp/algoflow.db",
+        chroma_path="/tmp/algoflow-chroma",
+    )
+
+    settings.validate_runtime_config()
+
+
+def test_cors_allowed_origins_are_parsed_from_environment_string():
+    settings = Settings(
+        cors_allowed_origins="https://algoflow.example.com, https://preview.algoflow.example.com"
+    )
+
+    assert settings.cors_origins == [
+        "https://algoflow.example.com",
+        "https://preview.algoflow.example.com",
+    ]
 
 
 def test_live_adk_requires_credentials_in_production_like_config():
